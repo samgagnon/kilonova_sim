@@ -40,6 +40,8 @@ def file_to_list(fn):
 def get_bns():
     path = "../kilonova_models/bns_m1_2comp/"
     fn_list = os.listdir(path)
+    fn_list.remove('citations.bib')
+    fn_list.remove('README')
     fn = path + random.choice(fn_list)
     bns = file_to_list(fn)
     return bns

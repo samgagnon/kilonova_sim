@@ -1,15 +1,38 @@
 import numpy as np
-# import healpy as hp
 import requests
 import urllib.parse
 import os, sys, json
 import astropy.cosmology as cosmo
 import astropy.units as u
+from astropy.constants import c
 from astropy.cosmology import z_at_value
+from astropy.io import fits
 from random import choices
 from datetime import datetime
+from scipy.interpolate import interp1d
+from pca import *
 from bns import *
 
+"""
+A scientist wants H0. They have a list of events. 
+
+INPUTS: For each event they have the localization,
+the coverage footprint of the survey, GW parameters (mass ratio etc...).
+
+For events w/ a kilonova counterpart, we just compute H0 as normal.
+
+For events w/o a kilonova counterpart, is the lack of a counterpart due 
+to inclination angle effects or H0 being different?
+
+-> Input the sky footprint from LIGO, the footprint of all of the 
+detector CAMS, the limiting depth of each exposure, and the mass ratio
+of the merger itself.
+
+----------------------------------------------------------------------
+
+Outline a plan for how to infer H0 when you have some mergers with
+counterparts and others without counterparts.
+"""
 
 def dpc_from_H0(H0_arr, z):
     dpc_arr = []
@@ -129,12 +152,29 @@ def convert_flux(flux, wavelength, dpc):
     flux_density = 3.34e4 * flux * (wavelength ** 2)
     return flux_density
 
-def main(bns, dpc, z):
+def DEC_response():
+    hdul = fits.open("STD_BANDPASSES_DR1.fits")
+    return hdul[1].data
+
+def interpolate_response(response, lams):
+    extended_range = response['lambda'][-1]*np.linspace(1,1000, 50)
+    lambda_range = np.concatenate((response['lambda'], extended_range))
+    z_response = np.concatenate((response['z'], np.zeros(50)))
+    i_response = np.concatenate((response['i'], np.zeros(50)))
+    fz = interp1d(lambda_range, z_response)
+    fi = interp1d(lambda_range, i_response)
+    z_response = fz(lams[32:43])
+    i_response = fi(lams[32:43])
+    return {"lambda": lams, "z": z_response, "i": i_response}
+
+def main(pcm, components, sc, response, dpc, z, phi):
     n = np.random.uniform(0, 1)
     if dpc < 8:
         cutoff = 0.9
-    elif 25 < dpc < 50:
+    elif dpc < 50:
         cutoff = 0.8
+    elif dpc < 100:
+        cutoff = 0.7
     else:
         cutoff = 0.5
     if n < cutoff:
@@ -145,78 +185,28 @@ def main(bns, dpc, z):
         print("no detection made")
         return [0]
     else:
-        pos_angles = []
-        i_depth = 20.0 # 22.0
-        z_depth = 20.0 # 21.3
+        i_depth = 22.0 # 22.0
+        z_depth = 21.3 # 21.3
         # convert depth to correct flux density
-        wavecollection = [bns['oa0.1'], bns['oa0.2'], bns['oa0.3'], 
-            bns['oa0.4'], bns['oa0.5'], bns['oa0.6'], bns['oa0.7'],
-            bns['oa0.8'], bns['oa0.9'], bns['oa1.0']]
         angler = np.random.uniform(0, np.pi/2, 2)
         angle = np.sin(angler[0]) * np.cos(angler[1])
-        if angle <= 0.1:
-            wave = bns['oa0.1']
-            # angle = 0.1
-        elif 0.1 < angle <= 0.2:
-            wave = bns['oa0.2']
-            # angle = 0.2
-        elif 0.2 < angle <= 0.3:
-            wave = bns['oa0.3']
-            # angle = 0.3
-        elif 0.3 < angle <= 0.4:
-            wave = bns['oa0.4']
-            # angle = 0.4
-        elif 0.4 < angle <= 0.5:
-            wave = bns['oa0.5']
-            # angle = 0.5
-        elif 0.5 < angle <= 0.6:
-            wave = bns['oa0.6']
-            # angle = 0.6
-        elif 0.6 < angle <= 0.7:
-            wave = bns['oa0.7']
-            # angle = 0.7
-        elif 0.7 < angle <= 0.8:
-            wave = bns['oa0.8']
-            # angle = 0.8
-        elif 0.8 < angle <= 0.9:
-            wave = bns['oa0.9']
-            # angle = 0.9
-        else:
-            wave = bns['oa1.0']
-            # angle = 1.0
-        wti, wtz = 0, 0
-        flux_i, flux_z = 0, 0
-        flux_i_list = []
-        flux_z_list = []
-        for waveform in wave:
-            wl_obs = (z + 1) * waveform[0]
-            # wl_obs = waveform[0]
-            if 6365 < wl_obs < 9305:
-                flux_i_list.append(convert_flux(waveform[3], wl_obs, dpc))
-                # flux_i += convert_flux(waveform[3], wl_obs, dpc) * i_weight(wl_obs)
-                # wi = i_weight(wl_obs)
-                # if wi > wti:
-                #     wti = wi 
-            elif 7740 < wl_obs < 10780:
-                flux_z_list.append(convert_flux(waveform[3], wl_obs, dpc))
-                # flux_z += convert_flux(waveform[3], wl_obs, dpc) * z_weight(wl_obs)
-                # wz = z_weight(wl_obs)
-                # if wz > wtz:
-                #     wtz = wz
-        filen, fzlen = len(flux_i_list), len(flux_z_list)
-        if filen > 0:
-            mid = int(filen/2)
-            flux_i = flux_i_list[mid]
-            mAB_i = 8.9 - 2.5 * np.log10(flux_i)
-        else:
-            mAB_i = 100
-        if fzlen > 0:
-            mid = int(fzlen/2)
-            flux_z = flux_z_list[mid]
-            mAB_z = 8.9 - 2.5 * np.log10(flux_z)
-        else:
-            mAB_z = 100
-        # d_inf = dpc / 1e6
+        lambdas = response['lambda']/(z+1)
+        interp_fluxes = interpolate(pcm, components, sc, (phi, angle, 1.25))
+        interp_fluxes = convert_flux(np.array(interp_fluxes), lambdas, dpc)
+        nu = c.value/response['lambda']
+        znorm = list(response['z']/response['z'].sum())
+        znorm = [0]*31 + znorm + [0]*58
+        znorm = np.array(znorm)
+        inorm = list(response['i']/response['i'].sum())
+        inorm = [0]*31 + inorm + [0]*58
+        inorm = np.array(inorm)
+        nulen = (nu.max()-nu.min())/len(nu)
+        topint_z = (interp_fluxes*znorm).sum() * nulen
+        botint_z = (3631*znorm).sum() * nulen
+        topint_i = (interp_fluxes*inorm).sum() * nulen
+        botint_i = (3631*inorm).sum() * nulen
+        mAB_z = -2.5 * np.log10(topint_z/botint_z)
+        mAB_i = -2.5 * np.log10(topint_i/botint_i)
         d_inf = d_est(dpc/1e6, angle)
         print("inferred distance (Mpc):", d_inf)
         print("distance (Mpc):", dpc/1e6)
@@ -226,11 +216,11 @@ def main(bns, dpc, z):
         if mAB_i < i_depth or mAB_z < z_depth:
             detection = True
             print("detection made")
-            return detection, angle, d_inf
+            return detection, angle, d_inf, mAB_i, mAB_z
         else:
             detection = False
             print("no detection made")
-            return detection, angle, d_inf
+            return detection, angle, d_inf, mAB_i, mAB_z
 
         
 
@@ -239,22 +229,24 @@ if __name__ == "__main__":
     n = int(1e5)
     params = int(9)
     results = np.zeros((n, params))
-    # a = np.asarray(list(range(1,151)))
-    # b = a**2
-    # p = b/b.sum()
-    # dpc_array = np.random.choice(a*1e6, n, p=p)
     H0_array = np.random.uniform(60, 90, n)
-    # z_array = z_from_dpc_H0(H0_array, dpc_array)
-    z_array = np.array([0.0099]*n)
-    # z_array = np.array([0.1]*n)
+    # z_array = np.array([0.0099]*n)
+    z_array = np.array([0.03]*n)
     dpc_array = dpc_from_H0(H0_array, z_array[0])
+    phi_array = np.array([30]*n)
     print("Distance Max, Min: ", dpc_array.max()/1e6, dpc_array.min()/1e6)
+    all_bns = get_all_bns()
+    bns_table = bns_dict2list(all_bns)
+    pcm, components, sc = pcomp_matrix(bns_table)
+    create_interpolators(pcm)
+    lams = all_bns[0]["oa0.0"][:,0]
+    response = DEC_response()
+    response = interpolate_response(response, lams)
     for i in range(n):
-        bns = get_bns()
-        result = main(bns, dpc_array[i], z_array[i])
+        result = main(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i])
         if result != [0]:
-            results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], bns['mc_packets'], \
-            bns['total_ejecta_mass'], bns['half_angle'], result[1], result[2]])
+            results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], \
+                phi_array[i], result[1], result[2], result[3], result[4]])
         else:
             results[i] = np.zeros((params))
-    np.savetxt('100k_3172021_sampled_60-90', results)
+    np.savetxt('100k_1552021_interp_phi_30_z0.3_60-90', results)
