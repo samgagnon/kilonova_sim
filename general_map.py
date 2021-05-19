@@ -78,7 +78,7 @@ def get_pointings(api_token, graceid):
         dec = float(position.split()[2].split(')')[0])
         pos_angle = tile['pos_angle']
         instrument_id = tile['instrumentid']
-        pointings.append([instrument_id, ra,dec, pos_angle])
+        pointings.append([instrument_id, ra, dec, pos_angle])
     return np.asarray(pointings)
 
 
@@ -106,8 +106,11 @@ def get_footprints(api_token, graceid):
             ra = float(obj[0])
             dec = float(obj[1])
             footprint.append([ra,dec])
-        new_entry = {inst_id:footprint}
-        footprints_dict.update(new_entry)
+        if inst_id in footprints_dict:
+            footprints_dict[inst_id] += [footprint]
+        else:
+            new_entry = {inst_id:[footprint]}
+            footprints_dict.update(new_entry)
     return footprints_dict
 
 
@@ -166,7 +169,12 @@ def deg2rad(point):
 
 
 def astro2sky(point):
-    colat = np.pi/2 - point[1]
+    if 3*np.pi/2 > point[1] > np.pi/2:
+        colat = point[1] - np.pi/2
+    elif point[1] > 3*np.pi/2:
+        colat = 5*np.pi/2 - point[1]
+    else:
+        colat = np.pi/2 - point[1]
     if point[0] < 0:
         colong = 2*np.pi + point[0]
     else:
@@ -187,11 +195,29 @@ def point_projector(point):
 
 def query_footprint(footprint, pointing):
     polygon = []
-    for p in footprint:
-        point = np.array(p) + np.array(pointing)
-        point = point_projector(point)
-        polygon.append(point)
-    return hp.query_polygon(256, polygon)
+    if len(footprint) > 4:
+        # this branch handles instruments where each pointing
+        # has multiple footprints, like ZTF
+        idx = []
+        # print("footprints:", footprint)
+        for f in footprint:
+            polygon = []
+            # print("footprint:", f)
+            for p in f[0:4]:
+                # print("point:", p)
+                point = np.array(p) + np.array(pointing)
+                point = point_projector(point)
+                polygon.append(point)
+            idx.extend(list(hp.query_polygon(256, polygon)))
+        print(idx)
+        return idx
+    else:
+        for p in footprint[0][0:4]:
+            point = np.array(p) + np.array(pointing)
+            print(point)
+            point = point_projector(point)
+            polygon.append(point)
+        return hp.query_polygon(256, polygon)
 
 
 def coverage_in_time(ti, tf, info_list, event_loc):
@@ -202,13 +228,15 @@ def coverage_in_time(ti, tf, info_list, event_loc):
     info_list: the information list
     """
     results = []
+    # for plotting
+    all_indices = []
     for info in info_list:
-        footprint = footprints_dict.get(info['ID'])[:-1]
+        # footprint = footprints_dict.get(info['ID'])[:-1]
+        footprint = footprints_dict.get(info['ID'])
         pointings = info['pointings']
-        print(pointings)
         times = info['time']
         depths = info['depth']
-        band = info['band']
+        bands = info['band']
         indices = []
         for i in range(len(times)):
             if ti <= times[i] <= tf:
@@ -219,25 +247,26 @@ def coverage_in_time(ti, tf, info_list, event_loc):
             # try next instrument
             continue
         pointings = pointings[indices]
-        idx = []
         index = 0
         point_n = []
-        print(pointings)
         for pointing in pointings:
             # loops through pointings and appends indices covered by
             # the instrument footprint
-            # print(pointing)
             new_indices = list(query_footprint(footprint, pointing))
-            # dpx = np.log10(hpx)
-            # dpx[new_indices] *= 5e5
-            # hp.visufunc.mollview(dpx)
-            # plt.show()
+            print(new_indices)
+            all_indices += new_indices
+            index += 1
             if event_loc in new_indices:
                 print(True)
-                depth = depths[event_loc]
-                band = bands[event_loc]
+                depth = depths[index]
+                band = bands[index]
                 inst_name = info["inst_name"]
                 results += [inst_name, band, depth]
+    # diagnostic plot
+    dpx = np.copy(hpx)
+    dpx[all_indices] = 1e-5
+    hp.visufunc.mollview(dpx)
+    plt.show()
     return results
 
 
@@ -265,7 +294,8 @@ def coverage_iterator(hpx, time, info_list, event_loc):
         if results == []:
             continue
         else:
-            for result in result:
+            result = []
+            for result in results:
                 result += [ti, t2, i,]
             detections += results
     return detections
@@ -279,23 +309,18 @@ def sim_event(api_token, graceid, mapfile, time):
     global hpx
     # load in GW localization
     hpx = hp.read_map(mapfile, verbose=False)
-    print(hp.pixelfunc.get_nside(hpx))
     hpx = hp.pixelfunc.ud_grade(hpx, 256)
-    # hp.visufunc.cartview(hpx)
-    # plt.show()
-    # print(hpx)
     event_loc = choices(list(range(len(hpx))), hpx)
-    print(event_loc, hpx[event_loc])
-    print(hp.pixelfunc.pix2ang(256, event_loc, lonlat=True))
     pointings = get_pointings(api_token, graceid)
+    np.savetxt("pointings", pointings)
     footprints_dict = get_footprints(api_token, graceid)
     # instrument_dict gives the name associated with each instrument ID
     instrument_dict = get_instruments(api_token, graceid)
-    pointings = np.delete(pointings, 1, 1)
+    pointings = np.delete(pointings, 3, 1)
     # get the ids for each pointing class
     print(instrument_dict)
     id_set = set(list(pointings[:, 0]))
-    legal_inst = [38, 22, 23, 24, 25, 26, 11, 65, 52, 47, 70, 71, 12]
+    legal_inst = [38, 22, 23, 24, 25, 26, 11, 65, 52, 47, 70, 71]
     # I removed the Swift Burst Alert Telescope due to a polygon issue with 
     # its footprint
     info_list = []
