@@ -12,7 +12,7 @@ from datetime import datetime
 from scipy.interpolate import interp1d
 from pca import *
 from bns import *
-from gwsim import *
+# from gwsim import *
 
 """
 A scientist wants H0. They have a list of events. 
@@ -83,8 +83,8 @@ def dp(D_0, D, Dmax, v_0, v):
               1/(2*d2**2)*((1+v**2)*D_0/(2*D) - (1+v_0**2)/2)**2)
     return D**2*e*H(D/D_0)*H(Dmax/D_0 - D/D_0)*H(1-v**2)/D_0**2
 
-def pdf(D0, v0):
-    dspace = np.linspace(D0/3, 3*D0, int(1e3))
+def pdf(D0, v0, dspace):
+    # dspace = np.linspace(D0/3, 3*D0, int(1e3))
     vspace = np.linspace(-1, 1)
     pdf = 0
     for v in vspace:
@@ -96,14 +96,20 @@ def pdf(D0, v0):
     return pdf
 
 def d_est(D0, v0):
-    d_est = 0
     dspace = np.linspace(D0/3, 3*D0, int(1e3))
-    p = pdf(D0, v0)
+    d_est = 0
+    p = pdf(D0, v0, dspace)
     if p.sum() is not 1.0:
         p /= p.sum()
-    for j in range(len(p)):
-        d_est += p[j] * dspace[j]
-    # d_est = np.random.choice(dspace, p=p)
+    # for j in range(len(p)):
+        # d_est += p[j] * dspace[j]
+    d_est = np.random.choice(dspace, p=p)
+    # plt.plot(dspace, p, 'b-', label="Sim. Dist.")
+    # plt.axvline(d_est, c='r', ls='--', label="Dist. Sample")
+    # plt.title("Simulated Distance Distribution", fontsize=25)
+    # plt.legend(fontsize=20)
+    # plt.xlabel("Distance [Mpc]", fontsize=20)
+    # plt.show()
     return d_est
 
 
@@ -185,7 +191,13 @@ def from_gwsim():
                    int(time[1]), int(time[2])])
 
 
-def main(pcm, components, sc, response, dpc, z, phi):
+# under construction: dummy event emulator
+# def event_emulator():
+#     bns = get_bns()
+#     e1 = ['DECam', t1, t2, index of time]
+
+
+def obsim(pcm, components, sc, response, dpc, z, phi, pdl=None):
     n = np.random.uniform(0, 1)
     if dpc < 8:
         cutoff = 0.9
@@ -208,6 +220,32 @@ def main(pcm, components, sc, response, dpc, z, phi):
         # convert depth to correct flux density
         angler = np.random.uniform(0, np.pi/2, 2)
         angle = np.sin(angler[0]) * np.cos(angler[1])
+        ################################################################
+        # determine if inferred distance is consistent with observations
+        d_inf = d_est(dpc/1e6, angle)
+        if pdl is None:
+            dist_range, gw170817dist = np.loadtxt('GW170817dist.txt')
+            gw170817dist /= gw170817dist.max()
+            ref_dist = gw170817dist
+        else:
+            dist_range, ref_dist = pdl
+            ref_dist /= ref_dist.max()
+        if dist_range.min() <= d_inf <= dist_range.max():
+            dprob = interp1d(dist_range, ref_dist)(d_inf)
+            # plt.plot(dist_range, gw170817dist, 'b-', label="Reference Dist.")
+            # plt.plot(d_inf, dprob, 'r+', label="Dist. Sample")
+            # plt.legend(fontsize=20)
+            # plt.xlabel("Distance [Mpc]", fontsize=20)
+            # plt.title("Reference Distance Distribution", fontsize=25)
+            # plt.show()
+            rnum = np.random.uniform(0, 1)
+            if rnum > dprob:
+                print("distance rejected")
+                return [0]
+        else:
+            print("distance rejected")
+            return [0]
+        ################################################################
         lambdas = response['lambda']/(z+1)
         interp_fluxes = interpolate(pcm, components, sc, (phi, angle, 1.25))
         interp_fluxes = convert_flux(np.array(interp_fluxes), lambdas, dpc)
@@ -225,7 +263,6 @@ def main(pcm, components, sc, response, dpc, z, phi):
         botint_i = (3631*inorm).sum() * nulen
         mAB_z = -2.5 * np.log10(topint_z/botint_z)
         mAB_i = -2.5 * np.log10(topint_i/botint_i)
-        d_inf = d_est(dpc/1e6, angle)
         print("inferred distance (Mpc):", d_inf)
         print("distance (Mpc):", dpc/1e6)
         print("observation angle (deg):", np.arccos(angle) *180/np.pi)
@@ -240,31 +277,92 @@ def main(pcm, components, sc, response, dpc, z, phi):
             print("no detection made")
             return detection, angle, d_inf, mAB_i, mAB_z
 
+
+def gen_event(H0):
+    # generate true distance
+    O4range = np.linspace(1, 190, 1000)
+    O4prob = O4range**2
+    O4prob /= O4prob.sum()
+    distance = np.random.choice(O4range, p=O4prob)
+    # generate observed redshift
+    z = z_from_dpc_H0([H0], [distance*1e6])[0]
+    # generate distance posterior
+    angler = np.random.uniform(0, np.pi/2, 2)
+    angle = np.sin(angler[0]) * np.cos(angler[1])
+    dspace = np.linspace(distance/3, 3*distance, int(1e3))
+    pdl = pdf(distance, angle, dspace)
+    if pdl.sum() is not 1.0:
+        pdl /= pdl.sum()
+    return [dspace, pdl], z, distance, angle
+
         
-
-
-if __name__ == "__main__":
+def one_event():
+    # this needs to be modified to find the response curve of whatever instrument is fed into the program.
     n = int(1e5)
     params = int(9)
     results = np.zeros((n, params))
-    H0_array = np.random.uniform(60, 90, n)
-    # z_array = np.array([0.0099]*n)
-    z_array = np.array([0.03]*n)
+    H0_array = np.random.uniform(1, 150, n)
+    z_array = np.array([0.0099]*n)
     dpc_array = dpc_from_H0(H0_array, z_array[0])
-    phi_array = np.array([30]*n)
+    phi_array = np.random.uniform(15, 75, n)
     print("Distance Max, Min: ", dpc_array.max()/1e6, dpc_array.min()/1e6)
     all_bns = get_all_bns()
     bns_table = bns_dict2list(all_bns)
     pcm, components, sc = pcomp_matrix(bns_table)
     create_interpolators(pcm)
     lams = all_bns[0]["oa0.0"][:,0]
-    response = DEC_response()
+    instrument = "DEC"
+    if instrument == "DEC":
+        response = DEC_response()
     response = interpolate_response(response, lams)
     for i in range(n):
-        result = main(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i])
+        result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i])
         if result != [0]:
             results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], \
                 phi_array[i], result[1], result[2], result[3], result[4]])
         else:
             results[i] = np.zeros((params))
-    np.savetxt('100k_1552021_interp_phi_30_z0.3_60-90', results)
+    np.savetxt('100k_2852021_interp_1-150', results)
+
+
+def O4sim():
+    """
+    Creates 10 randomized events representative of the O4 observing run.
+    Each is generated with a true seed H0, seed distances, and seed observing angles
+    """
+    H0 = 72
+    all_results = []
+    for i in range(10):
+        pdl, z, dl, v = gen_event(H0)
+        # please modularize this
+        n = int(1e5)
+        params = int(11)
+        results = np.zeros((n, params))
+        H0_array = np.random.uniform(1, 150, n)
+        z_array = np.array([z]*n)
+        dpc_array = dpc_from_H0(H0_array, z_array[0])
+        phi_array = np.random.uniform(15, 75, n)
+        print("Distance Max, Min: ", dpc_array.max()/1e6, dpc_array.min()/1e6)
+        all_bns = get_all_bns()
+        bns_table = bns_dict2list(all_bns)
+        pcm, components, sc = pcomp_matrix(bns_table)
+        create_interpolators(pcm)
+        lams = all_bns[0]["oa0.0"][:,0]
+        instrument = "DEC"
+        if instrument == "DEC":
+            response = DEC_response()
+        response = interpolate_response(response, lams)
+        for i in range(n):
+            result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i], pdl)
+            if result != [0]:
+                results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], \
+                    phi_array[i], result[1], result[2], result[3], result[4], dl, v])
+            else:
+                results[i] = np.zeros((params))
+        all_results.extend(results)
+    np.savetxt('O4_100k_262021_H072_interp_1-150', all_results)  
+    
+
+
+if __name__ == "__main__":
+    O4sim()
