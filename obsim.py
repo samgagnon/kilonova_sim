@@ -10,6 +10,7 @@ from astropy.io import fits
 from random import choices
 from datetime import datetime
 from scipy.interpolate import interp1d
+from scipy.stats import truncnorm
 from pca import *
 from bns import *
 # from gwsim import *
@@ -197,16 +198,17 @@ def from_gwsim():
 #     e1 = ['DECam', t1, t2, index of time]
 
 
-def obsim(pcm, components, sc, response, dpc, z, phi, pdl=None):
+def obsim(pcm, components, sc, response, dpc, z, mej, phi, pdl=None):
     n = np.random.uniform(0, 1)
-    if dpc < 8:
-        cutoff = 0.9
-    elif dpc < 50:
-        cutoff = 0.8
-    elif dpc < 100:
-        cutoff = 0.7
-    else:
-        cutoff = 0.5
+    # if dpc < 8:
+        # cutoff = 0.99
+    # elif dpc < 50:
+        # cutoff = 0.9
+    # elif dpc < 100:
+        # cutoff = 0.7
+    # else:
+        # cutoff = 0.5
+    cutoff = 0.95
     if n < cutoff:
         detection = True
     else:
@@ -247,7 +249,7 @@ def obsim(pcm, components, sc, response, dpc, z, phi, pdl=None):
             return [0]
         ################################################################
         lambdas = response['lambda']/(z+1)
-        interp_fluxes = interpolate(pcm, components, sc, (phi, angle, 1.25))
+        interp_fluxes = interpolate(pcm, components, sc, (mej, phi, angle, 1.25))
         interp_fluxes = convert_flux(np.array(interp_fluxes), lambdas, dpc)
         nu = c.value/response['lambda']
         znorm = list(response['z']/response['z'].sum())
@@ -316,7 +318,7 @@ def one_event():
         response = DEC_response()
     response = interpolate_response(response, lams)
     for i in range(n):
-        result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i])
+        result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], mej_array[i], phi_array[i])
         if result != [0]:
             results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], \
                 phi_array[i], result[1], result[2], result[3], result[4]])
@@ -336,12 +338,13 @@ def O4sim():
         pdl, z, dl, v = gen_event(H0)
         # please modularize this
         n = int(1e5)
-        params = int(11)
+        params = int(12)
         results = np.zeros((n, params))
         H0_array = np.random.uniform(1, 150, n)
         z_array = np.array([z]*n)
         dpc_array = dpc_from_H0(H0_array, z_array[0])
         phi_array = np.random.uniform(15, 75, n)
+        mej_array = np.random.uniform(0.01, 0.1, n)
         print("Distance Max, Min: ", dpc_array.max()/1e6, dpc_array.min()/1e6)
         all_bns = get_all_bns()
         bns_table = bns_dict2list(all_bns)
@@ -353,16 +356,73 @@ def O4sim():
             response = DEC_response()
         response = interpolate_response(response, lams)
         for i in range(n):
-            result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], phi_array[i], pdl)
+            result = obsim(pcm, components, sc, response, dpc_array[i], z_array[i], mej_array[i], phi_array[i], pdl)
             if result != [0]:
                 results[i] = np.array([result[0], H0_array[i], z_array[i], dpc_array[i], \
-                    phi_array[i], result[1], result[2], result[3], result[4], dl, v])
+                    phi_array[i], result[1], result[2], result[3], result[4], dl, v, mej_array[i]])
             else:
                 results[i] = np.zeros((params))
         all_results.extend(results)
-    np.savetxt('O4_100k_262021_H072_interp_1-150', all_results)  
+    np.savetxt('O4_100k_962021_H072_interp_1-150', all_results)
+
+
+def MCMC_O4sim():
+    """
+    Creates 10 randomized events representative of the O4 observing run.
+    Each is generated with a true seed H0, seed distances, and seed observing angles
+    """
+    H0_true = 72
+    all_results = []
+    a = 0
+    n = int(1e5)
+    params = int(12)
+    # please modularize this
+    all_bns = get_all_bns()
+    bns_table = bns_dict2list(all_bns)
+    pcm, components, sc = pcomp_matrix(bns_table)
+    print(components)
+    print(np.shape(components))
+    create_interpolators(pcm)
+    lams = all_bns[0]["oa0.0"][:,0]
+    instrument = "DEC"
+    if instrument == "DEC":
+        response = DEC_response()
+    response = interpolate_response(response, lams)
+    H0 = np.random.uniform(1, 150, 1)
+    for i in range(10):
+        pdl, z, dl, v = gen_event(H0_true)
+        results = np.zeros((n, params))
+        dpc = dpc_from_H0(H0, z)[0]
+        # print(dpc)
+        phi = np.random.uniform(15, 75, 1)
+        mej = np.random.uniform(0.01, 0.1, 1)
+        # first step
+        result = obsim(pcm, components, sc, response, dpc, z, mej, phi, pdl)
+        if result != [0]:
+            results[i] = np.array([result[0], H0, z, dpc, \
+                phi, result[1], result[2], result[3], result[4], dl, v, mej])
+        else:
+            results[i] = np.zeros((params))
+        all_results.extend(results)
+        for i in range(int(1e4)):
+            a_H0, b_H0 = (1 - H0) / 20, (150 - H0) / 20
+            H0 = truncnorm.rvs(a_H0, b_H0, loc=H0, scale=20, size=1)
+            dpc = dpc_from_H0(H0, z)[0]
+            a_phi, b_phi = (15 - phi) / 15, (75 - phi) / 15
+            phi = truncnorm.rvs(a_phi, b_phi, loc=phi, scale=15, size=1)
+            a_mej, b_mej = (0.01 - mej) / 0.02, (0.1 - mej) / 0.02
+            mej = truncnorm.rvs(a_mej, b_mej, loc=mej, scale=0.02, size=1)
+            result = obsim(pcm, components, sc, response, dpc, z, mej, phi, pdl)
+            if result != [0]:
+                results[i] = np.array([result[0], H0, z, dpc, \
+                    phi, result[1], result[2], result[3], result[4], dl, v, mej])
+            else:
+                results[i] = np.zeros((params))
+        all_results.extend(results)
+    np.savetxt('MCMC_O4_100k_2262021_H072_interp_1-150', all_results)
     
 
 
 if __name__ == "__main__":
-    O4sim()
+    # O4sim()
+    MCMC_O4sim()
