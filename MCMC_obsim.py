@@ -3,6 +3,7 @@ import requests
 import urllib.parse
 import os, sys, json
 import mosfit
+import time
 import subprocess as sub
 import emcee as mc
 import astropy.cosmology as cosmo
@@ -247,19 +248,39 @@ def obsim(H0, mej, phi, angle, event_list):
     detections = []
     mags = []
     dprob_global = min(dprob_list)
+    # here we shall run all 10 simultaneously
+    my_name = ['mn1', 'mn2', 'mn3', 'mn4', 'mn5', 'mn6', 'mn7', 'mn8', 'mn9', 'mn10']
+    cmds_list = [['mosfit', '-m', 'bns_generative', '-N', '1', '-S', '4', '--max-time', '4', '--band-systems', \
+                'AB', '--extra-outputs', 'times', 'model_observations', 'all_bands', '-F', \
+                'texplosion', '-0.01', 'lumdist', str(event_list[i][2]), 'redshift', str(event_list[i][1]), 'Mchirp', '1.188', 'q', '0.92', \
+                'disk_frac', '0.15', 'cos_theta', str(event_list[i][3]), 'cos_theta_cocoon', str(phi[i]), '--band-list', 'z', \
+                '-s', my_name[i]] for i in range(len(event_list))]
+    tic = time.perf_counter()
+    procs_list = [sub.Popen(cmd, cwd='./models/', stdin=sub.PIPE, stdout=sub.PIPE, stderr=sub.PIPE, shell=True) for cmd in cmds_list]
+    for proc in procs_list:
+        bic = time.perf_counter()
+        proc.communicate('22'.encode())
+        boc = time.perf_counter()
+        print("Step took", boc-bic, "to complete")
+    for proc in procs_list:
+        proc.wait()
+    toc = time.perf_counter()
+    print("Process took", toc-tic, "to complete")
     for i in range(len(event_list)):
-        runstr = "mosfit -m bns_generative -N 1 -S 4 --max-time 4 --band-systems AB --extra-outputs times model_observations all_bands -F texplosion -0.01 lumdist " + \
-                str(event_list[i][2]) + " redshift " + str(event_list[i][1]) + " Mchirp " + str(1.188) + " q " + str(0.92) + " disk_frac " + \
-                str(0.15) + " cos_theta " + str(event_list[0][3]) + " cos_theta_cocoon " + str(phi[i]) + " --band-list z -s my_name" 
-        sub.run(runstr, cwd='./models/', input='22'.encode())
-        with open("./models/products/bns_generative_extras_my_name.json") as f:
+        # runstr = "mosfit -m bns_generative -N 1 -S 4 --max-time 4 --band-systems AB --extra-outputs times model_observations all_bands -F texplosion -0.01 lumdist " + \
+        #         str(event_list[i][2]) + " redshift " + str(event_list[i][1]) + " Mchirp " + str(1.188) + " q " + str(0.92) + " disk_frac " + \
+        #         str(0.15) + " cos_theta " + str(event_list[0][3]) + " cos_theta_cocoon " + str(phi[i]) + " --band-list z -s my_name" 
+        # sub.run(runstr, cwd='./models/', input='22'.encode())
+        # load output file
+        fstr = "./models/products/bns_generative_extras_" + my_name[i] + ".json"
+        with open(fstr) as f:
             d = j.load(f)
         observations = d['model_observations'][0] # this is a list of AB magnitudes
-        print("event weight (Mpc):", dprob_list[i])
-        print("inferred distance (Mpc)", d_inf_list[i])
-        print("distance (Mpc):", event_list[i][2])
-        print("observation angle (deg):", np.arccos(angle[i]) *180/np.pi)
-        print("z band:", min(observations))
+        # print("event weight (Mpc):", dprob_list[i])
+        # print("inferred distance (Mpc)", d_inf_list[i])
+        # print("distance (Mpc):", event_list[i][2])
+        # print("observation angle (deg):", np.arccos(angle[i]) *180/np.pi)
+        # print("z band:", min(observations))
         mags += [min(observations)]
         detections += [any(observations) < z_depth]
     return detections, angle, [dprob_global]*len(d_inf_list), d_inf_list, mags
@@ -327,15 +348,15 @@ def walker(event_list, H0, params, n):
         a_mej, b_mej = (0.01 - mej) / 0.02, (0.1 - mej) / 0.02
         mej = truncnorm.rvs(a_mej, b_mej, loc=mej, scale=0.02, size=10)
         a_angle, b_angle = (0 - angle) / 0.2, (1 - angle) / 0.2
-        angle = truncnorm.rvs(a_angle, b_angle, loc=mej, scale=0.2, size=10)
+        angle = truncnorm.rvs(a_angle, b_angle, loc=angle, scale=0.2, size=10)
         result = obsim(H0, mej, phi, angle, event_list)
         if result != [0]:
-            r = np.random.uniform(0, 1)
-            if r > result[2][0]:
-                H0 = results[-1][0]
-                phi = results[-1][3]
-                mej = results[-1][-1]
-                angle = results[-1][-3]
+            # r = np.random.uniform(0, 1)
+            # if r > result[2][0]:
+            #     H0 = results[-1][0]
+            #     phi = results[-1][3]
+            #     mej = results[-1][-1]
+            #     angle = results[-1][-3]
             for i in range(len(event_list)):
                 results += [np.array([H0[0], event_list[i][1], event_list[i][2], \
                     phi[i], result[1][i], result[2][i], result[3][i], result[4][i], event_list[i][3], mej[i]])]
