@@ -16,6 +16,7 @@ from random import choices
 from datetime import datetime
 from scipy.interpolate import interp1d
 from scipy.stats import truncnorm
+from gwtoolbox import tools_earth
 from pca import *
 from bns import *
 # from gwsim import *
@@ -105,7 +106,7 @@ def d_est(D0, v0):
     dspace = np.linspace(D0/3, 3*D0, int(1e3))
     d_est = 0
     p = pdf(D0, v0, dspace)
-    if p.sum() is not 1.0:
+    if p.sum() != 1.0:
         p /= p.sum()
     # for j in range(len(p)):
         # d_est += p[j] * dspace[j]
@@ -250,20 +251,48 @@ def obsim(H0, mej, phi, angle, event_list):
     dprob_global = min(dprob_list)
     # here we shall run all 10 simultaneously
     my_name = ['mn1', 'mn2', 'mn3', 'mn4', 'mn5', 'mn6', 'mn7', 'mn8', 'mn9', 'mn10']
-    cmds_list = [['mosfit', '-m', 'bns_generative', '-N', '1', '-S', '4', '--max-time', '4', '--band-systems', \
+    cmds_list = [['mosfit', '--language', 'en', '-m', 'bns_generative', '-N', '1', '-S', '4', '--max-time', '4', '--band-systems', \
                 'AB', '--extra-outputs', 'times', 'model_observations', 'all_bands', '-F', \
                 'texplosion', '-0.01', 'lumdist', str(event_list[i][2]), 'redshift', str(event_list[i][1]), 'Mchirp', '1.188', 'q', '0.92', \
                 'disk_frac', '0.15', 'cos_theta', str(event_list[i][3]), 'cos_theta_cocoon', str(phi[i]), '--band-list', 'z', \
                 '-s', my_name[i]] for i in range(len(event_list))]
     tic = time.perf_counter()
-    procs_list = [sub.Popen(cmd, cwd='./models/', stdin=sub.PIPE, stdout=sub.PIPE, stderr=sub.PIPE, shell=True) for cmd in cmds_list]
-    for proc in procs_list:
+    # procs_list = [sub.Popen(cmd, cwd='./models/', stdin=sub.PIPE, stdout=sub.PIPE, stderr=sub.PIPE, shell=False) for cmd in cmds_list]
+    procs_list = [sub.Popen(cmd, cwd='./models/') for cmd in cmds_list]
+    for proc in procs_list[:5]:
         bic = time.perf_counter()
-        proc.communicate('22'.encode())
+        proc.wait()
+        # proc.communicate('22'.encode())
+        # stdout = proc.stdout.read()
+        # stderr = proc.stderr.read()
+        # if stdout:
+        #     print(stdout)
+        # if stderr:
+        #     print(stderr)
+        # proc.terminate()
         boc = time.perf_counter()
         print("Step took", boc-bic, "to complete")
-    for proc in procs_list:
+    for proc in procs_list[:5]:
+        proc.terminate()
+    for proc in procs_list[5:]:
+        bic = time.perf_counter()
         proc.wait()
+        # proc.communicate('22'.encode())
+        # stdout = proc.stdout.read()
+        # stderr = proc.stderr.read()
+        # if stdout:
+        #     print(stdout)
+        # if stderr:
+        #     print(stderr)
+        # proc.terminate()
+        boc = time.perf_counter()
+        print("Step took", boc-bic, "to complete")
+    for proc in procs_list[5:]:
+        proc.terminate()
+    # for proc in procs_list:
+    #     proc.wait()
+    # mosfit --language en -m bns_generative -N 1 -S 4 --max-time 4 --band-systems AB --extra-outputs times model_observations all_bands -F texplosion -0.01 lumdist 40 redshift 0.001 Mchirp 1.188 q 0.92 disk_frac 0.15 cos_theta 0.5 cos_theta_cocoon 0.5 --band-list z -s mn1
+    # for proc in procs_list:
     toc = time.perf_counter()
     print("Process took", toc-tic, "to complete")
     for i in range(len(event_list)):
@@ -299,9 +328,34 @@ def gen_event(H0):
     angle = np.sin(angler[0]) * np.cos(angler[1])
     dspace = np.linspace(distance/3, 3*distance, int(1e3))
     pdl = pdf(distance, angle, dspace)
-    if pdl.sum() is not 1.0:
+    if pdl.sum() != 1.0:
         pdl /= pdl.sum()
     return [dspace, pdl], z, distance, angle
+
+
+def gwtoolbox_gen(H0_true):
+    Om0 = 0.31
+    T0 = 2.725
+    # generate desired cosmology
+    cosmos = tools_earth.set_cosmology(None, H0_true, Om0, T0)
+    # R0, tau, m_mean, m_sclae, m_low, m_high, chi_sigma
+    # R0: merger rate [/yr/Gpc3] 
+    # tau: Delay time from formation to merger [Gyr]
+    # mass mean, standard deviation, low, high [solar masses]
+    # dispersion of effective spin
+    # be sure to keep these consistent with MOSFIT!
+    # find sauce to motivate the selected values
+    BNS_par = [300,3,1.4,0.5,1.1,2.5,0.1]
+    # summon the desired tool (LIGO)
+    Tools = tools_earth.Tools(detector_type='ligo', event_type='nsns', population=BNS_par, cosmos=cosmos)
+    # set generator parameters
+    time_obs = 60*24*365 # units of minutes of observation
+    rho_cri = 8 # signal-to-noise ratio cutoff
+    tot_num = Tools.total_number(time_obs, rho_cri)
+    # returns keys 'z','D','m1','m2','χ','dz','dm1','dm2','dχ','dD','dtb'
+    list_det = Tools.list_with_errors_df(time_obs, rho_cri, dtp=True)
+    params = [list_det['z'], list_det['D'], list_det['m1'], list_det['m2'], list_det['χ'], list_det['dz'], list_det['dm1'], list_det['dm2'], list_det['dχ'], list_det['dD'], list_det['dtb']]
+    return params
 
 
 def MCMC_O4sim():
@@ -311,15 +365,28 @@ def MCMC_O4sim():
     """
     H0_true = 72
     a = 0
-    n = int(1)
+    n = int(1e2)
     params = int(9)
     H0 = np.random.uniform(1, 150, 1)
     event_list = []
-    for i in range(10):
-        pdl, z, dl, v = gen_event(H0_true)
-        event_list += [[pdl, z, dl, v]]
+    z, D, m1, m2, X, dz, dm1, dm2, dX, dD, dtb  = gwtoolbox_gen(H0_true)
+    event_number = len(z)
+    event_list = []
+    for i in range(event_number):
+        # generate distance posterior
+        angler = np.random.uniform(0, np.pi/2, 2)
+        angle = np.sin(angler[0]) * np.cos(angler[1])
+        dspace = np.linspace(D[i]/3, 3*D[i], int(1e3))
+        pdl = pdf(D[i], angle, dspace)
+        if pdl.sum() != 1.0:
+            pdl /= pdl.sum()
+        event_list += [[pdl, z[i], D[i], angle]]
+    # below is the old method using gen_event
+    # for i in range(10):
+        # pdl, z, dl, v = gen_event(H0_true)
+        # event_list += [[pdl, z, dl, v]]
     results = walker(event_list, H0, params, n)
-    np.savetxt('MCMC_O4_100k_772021_H072_interp_1-150', results)
+    np.savetxt('MCMC_O4_100k_2792021_H072_interp_1-150', results)
     
 
 
@@ -333,8 +400,8 @@ def walker(event_list, H0, params, n):
     results = []
     if result != [0]:
         for i in range(len(event_list)):
-            print(H0, event_list[i][1], event_list[i][2], \
-                    phi[i], result[1][i], result[2][i], result[3][i], result[4][i], event_list[i][3], mej[i])
+            # print(H0, event_list[i][1], event_list[i][2], \
+                    # phi[i], result[1][i], result[2][i], result[3][i], result[4][i], event_list[i][3], mej[i])
             results += [np.array([H0[0], event_list[i][1], event_list[i][2], \
                 phi[i], result[1][i], result[2][i], result[3][i], result[4][i], event_list[i][3], mej[i]])]
     # else:
