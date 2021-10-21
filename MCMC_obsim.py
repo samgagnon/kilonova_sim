@@ -15,6 +15,7 @@ from astropy.io import fits
 from random import choices
 from datetime import datetime
 from scipy.interpolate import interp1d
+from scipy.special import erf
 from scipy.stats import truncnorm
 from gwtoolbox import tools_earth
 from pca import *
@@ -103,6 +104,12 @@ def pdf(D0, v0, dspace):
     return pdf
 
 def d_est(D0, v0):
+    """
+    This comes from Figure 10 of https://arxiv.org/pdf/gr-qc/9402014.pdf
+    NOTE M1 and M2 should be supplied from the event information
+    NOTE The polarization sensitivity parameters are sky-plane dependent. 
+    Therefore, the RA and DEC should be supplied to look up the correct values.
+    """
     dspace = np.linspace(D0/3, 3*D0, int(1e3))
     d_est = 0
     p = pdf(D0, v0, dspace)
@@ -166,6 +173,9 @@ def convert_flux(flux, wavelength, dpc):
     flux_density = 3.34e4 * flux * (wavelength ** 2)
     return flux_density
 
+def jansky(mab):
+    return 10**((8.9-mab)/2.5)
+
 def DEC_response():
     hdul = fits.open("STD_BANDPASSES_DR1.fits")
     return hdul[1].data
@@ -198,7 +208,28 @@ def from_gwsim():
                    int(time[1]), int(time[2])])
 
 
-def obsim(H0, mej, phi, angle, event_list):
+def detect_func(observations, sig10=23.8, bkg=18.7, cov=3):
+    """
+    Given a list of observations, return True if any are detected, False o/w.
+    Parameters default to z-band DECam specifications from Table 1 of 
+    https://www.noao.edu/meetings/decam/media/DECam_Technical_specifications.pdf.
+    - sig10: 10-sigma detection threshold (AB mag)
+    - bkg: background signal in band (AB mag/"^2)
+    - cov: camera sky plane coverage ("^2)
+    """
+    return True
+
+def obsim(H0, mej, phi, angle, event_list_all):
+    # edit the event list locally to remove terrestrial events
+    astro_truth = np.random.uniform(0, 1, len(event_list_all))
+    astro_prob = np.array([event[5] for event in event_list_all])
+    ter_origin = astro_truth > astro_prob
+    event_list_t = []
+    for i in range(len(ter_origin)):
+        if ter_origin[i] == False:
+            event_list_t += [event_list_all[i]]
+    if event_list_t == []:
+        return [0]
     # n = np.random.uniform(0, 1)
     # cutoff = 0.95
     # if n < cutoff:
@@ -214,21 +245,24 @@ def obsim(H0, mej, phi, angle, event_list):
     # angler = np.random.uniform(0, np.pi/2, (2, 10))
     # angle = np.sin(angler[0]) * np.cos(angler[1])
     ################################################################
+    # event list for those with proper distance measurements
+    event_list = []
     # determine if inferred distance is consistent with observations
-    dpc_list = [dpc_from_H0(H0, event[1])[0] for event in event_list]
-    d_inf_list = [d_est(dpc_list[i]/1e6, angle[i]) for i in range(len(event_list))]
+    dpc_list = [dpc_from_H0(H0, event[1])[0] for event in event_list_t]
+    d_inf_list = [d_est(dpc_list[i]/1e6, angle[i]) for i in range(len(event_list_t))]
     # pdl checker
     range_list = []
-    for event in event_list:
+    for event in event_list_t:
         dist_range, ref_dist = event[0]
         ref_dist /= ref_dist.max()
         range_list += [[dist_range, ref_dist]]
-    bounds = []
     dprob_list = []
     for i in range(len(range_list)):
-        bounds += [range_list[i][0].min() <= d_inf_list[i] <= range_list[i][0].max()]
-    if False in bounds:
-        print("distance rejected")
+        bounds = [range_list[i][0].min() <= d_inf_list[i] <= range_list[i][0].max()]
+        if bounds == [True]:
+            event_list += [event_list_t[i]]
+    if event_list == []:
+        print("no valid distance guesses")
         return [0]
     else:
         for i in range(len(event_list)):
@@ -250,10 +284,10 @@ def obsim(H0, mej, phi, angle, event_list):
     mags = []
     dprob_global = min(dprob_list)
     # here we shall run all 10 simultaneously
-    my_name = ['mn1', 'mn2', 'mn3', 'mn4', 'mn5', 'mn6', 'mn7', 'mn8', 'mn9', 'mn10']
+    my_name = ['mn' + str(i) for i in range(len(event_list))]
     cmds_list = [['mosfit', '--language', 'en', '-m', 'bns_generative', '-N', '1', '-S', '4', '--max-time', '4', '--band-systems', \
                 'AB', '--extra-outputs', 'times', 'model_observations', 'all_bands', '-F', \
-                'texplosion', '-0.01', 'lumdist', str(event_list[i][2]), 'redshift', str(event_list[i][1]), 'Mchirp', '1.188', 'q', '0.92', \
+                'texplosion', '-0.01', 'lumdist', str(event_list[i][2]), 'redshift', str(event_list[i][1]), 'Mchirp', str(event_list[i][4]), 'q', '0.92', \
                 'disk_frac', '0.15', 'cos_theta', str(event_list[i][3]), 'cos_theta_cocoon', str(phi[i]), '--band-list', 'z', \
                 '-s', my_name[i]] for i in range(len(event_list))]
     tic = time.perf_counter()
@@ -272,9 +306,9 @@ def obsim(H0, mej, phi, angle, event_list):
         # proc.terminate()
         boc = time.perf_counter()
         print("Step took", boc-bic, "to complete")
-    for proc in procs_list[:5]:
+    for proc in procs_list[:len(procs_list)//2]:
         proc.terminate()
-    for proc in procs_list[5:]:
+    for proc in procs_list[len(procs_list)//2:]:
         bic = time.perf_counter()
         proc.wait()
         # proc.communicate('22'.encode())
@@ -295,6 +329,14 @@ def obsim(H0, mej, phi, angle, event_list):
     # for proc in procs_list:
     toc = time.perf_counter()
     print("Process took", toc-tic, "to complete")
+    # magnitude probability of detection
+    sig10 = z_depth
+    mclip_a = 0
+    mclip_b = 100
+    m_std = abs((jansky(sig10)) / 10)
+    a, b = mclip_a / m_std, mclip_b / m_std
+    v = truncnorm(a,b)
+    print(v.cdf(jansky(sig10)/m_std))
     for i in range(len(event_list)):
         # runstr = "mosfit -m bns_generative -N 1 -S 4 --max-time 4 --band-systems AB --extra-outputs times model_observations all_bands -F texplosion -0.01 lumdist " + \
         #         str(event_list[i][2]) + " redshift " + str(event_list[i][1]) + " Mchirp " + str(1.188) + " q " + str(0.92) + " disk_frac " + \
@@ -310,8 +352,22 @@ def obsim(H0, mej, phi, angle, event_list):
         # print("distance (Mpc):", event_list[i][2])
         # print("observation angle (deg):", np.arccos(angle[i]) *180/np.pi)
         # print("z band:", min(observations))
+        # calculate probability of detection
         mags += [min(observations)]
-        detections += [any(observations) < z_depth]
+        flux_obs = jansky(np.array(observations))
+        obs_probs = v.cdf(flux_obs/m_std)
+        mprob = np.random.uniform(0,1)
+        detect = mprob < obs_probs
+        print(mprob, observations, obs_probs)
+        if True in detect:
+            detections += [True]
+        else:
+            detections += [False]
+        print(detections)
+        # NOTE it appears that dprob_global is harmful since my sampling of the distance distribution
+        # is performed probabilisitically, and therefore the Bayesian uncertainty should be encoded in the
+        # spread of the measurements. Furthermore, it appears that dprob_global is an inappropriate measure,
+        # even considering that I may only have one uncertainty attached to my measurement of H0.
     return detections, angle, [dprob_global]*len(d_inf_list), d_inf_list, mags
 
 
@@ -365,11 +421,17 @@ def MCMC_O4sim():
     """
     H0_true = 72
     a = 0
-    n = int(1e2)
+    n = 2
     params = int(9)
     H0 = np.random.uniform(1, 150, 1)
     event_list = []
     z, D, m1, m2, X, dz, dm1, dm2, dX, dD, dtb  = gwtoolbox_gen(H0_true)
+    # set p-astro for each event
+    p_astro = [1.0]*len(z) # this is a surrogate, in reality it should be an array of values between 0 and 1.
+    # calculate the chirp masses of each event
+    m_chirp = (m1*m2)**(3/5) / (m1 + m2)**(1/5)
+    # print(m_chirp)
+    # quit()
     event_number = len(z)
     event_list = []
     for i in range(event_number):
@@ -380,7 +442,7 @@ def MCMC_O4sim():
         pdl = pdf(D[i], angle, dspace)
         if pdl.sum() != 1.0:
             pdl /= pdl.sum()
-        event_list += [[pdl, z[i], D[i], angle]]
+        event_list += [[[dspace, pdl], z[i], D[i], angle, m_chirp[i], p_astro[i]]]
     # below is the old method using gen_event
     # for i in range(10):
         # pdl, z, dl, v = gen_event(H0_true)
@@ -391,9 +453,10 @@ def MCMC_O4sim():
 
 
 def walker(event_list, H0, params, n):
-    phi = np.random.uniform(15, 75, 10)
-    mej = np.random.uniform(0.01, 0.1, 10)
-    angler = np.random.uniform(0, np.pi/2, (2, 10))
+    n_event = len(event_list)
+    phi = np.random.uniform(15, 75, n_event)
+    mej = np.random.uniform(0.01, 0.1, n_event)
+    angler = np.random.uniform(0, np.pi/2, (2, n_event))
     angle = np.sin(angler[0]) * np.cos(angler[1])
     # first step
     result = obsim(H0, mej, phi, angle, event_list)
@@ -411,11 +474,11 @@ def walker(event_list, H0, params, n):
         H0 = truncnorm.rvs(a_H0, b_H0, loc=H0, scale=20, size=1)
         # dpc = dpc_from_H0(H0, z)[0]
         a_phi, b_phi = (15 - phi) / 15, (75 - phi) / 15
-        phi = truncnorm.rvs(a_phi, b_phi, loc=phi, scale=15, size=10)
+        phi = truncnorm.rvs(a_phi, b_phi, loc=phi, scale=15, size=n_event)
         a_mej, b_mej = (0.01 - mej) / 0.02, (0.1 - mej) / 0.02
-        mej = truncnorm.rvs(a_mej, b_mej, loc=mej, scale=0.02, size=10)
+        mej = truncnorm.rvs(a_mej, b_mej, loc=mej, scale=0.02, size=n_event)
         a_angle, b_angle = (0 - angle) / 0.2, (1 - angle) / 0.2
-        angle = truncnorm.rvs(a_angle, b_angle, loc=angle, scale=0.2, size=10)
+        angle = truncnorm.rvs(a_angle, b_angle, loc=angle, scale=0.2, size=n_event)
         result = obsim(H0, mej, phi, angle, event_list)
         if result != [0]:
             # r = np.random.uniform(0, 1)
