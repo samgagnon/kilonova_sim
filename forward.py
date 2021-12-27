@@ -94,7 +94,7 @@ def light_curve(fitfunc, fixed_params):
 
 def nobs_forward(H0, ve, DL, pDL, event):
     # get free event parameters
-    v0 = np.cos(ve[0])
+    v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
     du = ve[1] # distance variable
     # use results from GWToolbox to get the true DL, M1, M2, v
     TDL = event[1]
@@ -124,7 +124,7 @@ def nobs_forward(H0, ve, DL, pDL, event):
 
 def obs_forward(H0, ve, event):
     # get free event parameters
-    v0 = np.cos(ve[0])
+    v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
     # use results from GWToolbox to get the true DL, M1, M2
     TZ = event[0]
     TDL = event[1]
@@ -160,7 +160,7 @@ def obs_forward(H0, ve, event):
 def forward(v):
     # get terms from input vector
     H0 = v[0]
-    print("Input Vector:", H0, np.cos(v[1]))
+    print("Input Vector:", v)
     det_list = []
     i = 1
     N = 1
@@ -174,9 +174,10 @@ def forward(v):
             # "distance in cosmology"
             DIC = universe.luminosity_distance(event[0]).value
             # probability density of given cosmology-assigned distance at sampled angle v0
-            dprob, dpm, dps = p_DV(event[1], event[4], event[2], event[3], np.cos(ve[0]), DIC)
+            v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
+            dprob, dpm, dps = p_DV(event[1], event[4], event[2], event[3], v0, DIC)
             if dprob/dps < 1e-4:
-                return dict(x=[0.0]*Npar)
+                return dict(x=np.array([0.0]))
     nobs_dl = []
     if nobs_list is not None:    
         for event in nobs_list:
@@ -185,11 +186,15 @@ def forward(v):
             i += 1
             # generate a possible distance from the random variables du, v0
             # and the prior distribution (depending on true event parameters)
-            DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2], event[3], np.cos(ve[0]), ve[1])
+            v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
+            DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2], event[3], v0, ve[1])
+
+            # TODO: produce similar list for v in both this and obs_list
+
             nobs_dl += [[DL, pDL/dpm]]
 #             print(DL, pDL)
             if pDL/dps < 1e-4:
-                return dict(x=[0.0]*Npar)
+                return dict(x=np.array([0.0]))
     i = 1
     j = 0
     N = 1
@@ -214,10 +219,10 @@ def forward(v):
 #     print(det_list)
 #     print(det_obs)
     if det_list == det_obs:
-        x = [p]*Npar
+        x = [p]
     else:
-        x = [0.0]*Npar
-    return dict(x=x)
+        x = [0.0]
+    return dict(x=np.array(x))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def H(x):
     """
     Heaviside step function
@@ -67,6 +66,9 @@ def D_vdu(d_true, v_true, m1, m2, v_guess, du):
     
     returns: (tuple) luminosity distance, probability of selection
     """
+
+    # TODO: Re-engineer this and p_DV to take dv and calculate v using the same pdist
+
     pdist = pDV_dist(d_true, v_true, m1, m2)
     vloc = np.abs(pdist[3] - v_guess).argmin()
     p_at_v = pdist[0][...,vloc]
@@ -95,3 +97,28 @@ def p_DV(d_true, v_true, m1, m2, v_guess, d_guess):
     ovloc = np.abs(pdist[3] - pdist[2][0][am]).argmin()
     odloc = np.abs(pdist[-1] - pdist[2][1][am]).argmin()
     return pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
+
+
+def v_from_CDF(d_true, v_true, m1, m2, dv):
+    """
+    Generates v from GW cdf
+    -d_true: true event luminosity distance
+    -v_true: true event angle variable
+    -m1: true event m1
+    -m2: true event m2
+    -dv: random variable to determine v from inverse CDF
+
+    returns: 
+    -v: cosine of observation angle
+    """
+    pdist = pDV_dist(d_true, v_true, m1, m2)
+    vdist = np.sum(pdist[0], 0)
+    vdist /= vdist.sum()
+    vcdf = np.cumsum(vdist)
+    vloc = np.abs(vcdf - dv).argmin()
+    v = pdist[3][vloc]
+    return v
+
+
+if __name__ == "__main__":
+    print(v_from_CDF(100, 0.1, 1.4, 1.4, 0.5))
