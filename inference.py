@@ -7,11 +7,16 @@ from forward import *
 
 # a TMNRE prior function take a random variable between 0 and 1 and produces an input vector from a prior of your choice
 
-low = np.array([50.0, 0.0, 0.0])
-high = np.array([100.0, 1.0, 1.0])
+# nobs
+# low = np.array([50.0, 0.0, 0.0])
+# high = np.array([100.0, 1.0, 1.0])
+# obs
+low = np.array([50.0, 0.0])
+high = np.array([100.0, 1.0])
 prior = swyft.get_uniform_prior(low, high)
 
-v_o = np.array([70.0, 0.5, 0.5])
+# v_o = np.array([50.0, 0.5, 0.5])
+v_o = np.array([50.0, 0.5])
 observation_o = forward(v_o)
 
 n_observation_features = observation_o[observation_key].shape[0]
@@ -102,11 +107,16 @@ mre_1d = swyft.MarginalRatioEstimator(
 
 print("training")
 
+dlen = len(dataset)
+
+for i in range(dlen):
+    print(dataset.__getitem__(i))
+
 mre_1d.train(dataset)
 
 # create a simple violin plot
 
-n_rejection_samples = 500
+n_rejection_samples = 5000
 
 print("producing posterior")
 
@@ -116,10 +126,16 @@ print("sampling")
 
 samples_1d = posterior_1d.sample(n_rejection_samples, observation_o)
 
-_ = swyft.violin(samples_1d)
+# _ = swyft.violin(samples_1d)
 
 # create row of histograms
 
-_, _ = swyft.hist1d(samples_1d, kde=True)
+# _, _ = swyft.hist1d(samples_1d, kde=True)
+
+key = list(samples_1d.keys())[0]
+print(key)
+
+plt.hist(samples_1d[key], 100)
+plt.xlim(50, 100)
 
 plt.show()

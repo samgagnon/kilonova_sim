@@ -142,7 +142,7 @@ def obs_forward(H0, ve, event):
     # probability density of given cosmology-assigned distance at sampled angle v0
     dprob, dpm, dps = p_DV(event[1], event[4], event[2], event[3], v0, DIC)
     dprob /= dpm
-#     print("dprob:", dprob)
+    # print("dprob:", dprob)
 #     dprob = 1.0
     # I also need to calculate the probability of this distance being allowed
     # and return that probability to be used in the summary statistic
@@ -205,6 +205,8 @@ def forward(v):
             N = i+k*i
             i += 1
             det, pobs = obs_forward(H0, ve, event)
+            det_list += [det]
+            p *= pobs
     if nobs_list is not None:
         for event in nobs_list:
             ve = v[N:i+(k+1)*i]
@@ -216,8 +218,9 @@ def forward(v):
             det, pobs = nobs_forward(H0, ve, DL, pDL, event)
             det_list += [det]
             p *= pobs
-#     print(det_list)
-#     print(det_obs)
+    # print(det_list)
+    # print(det_obs)
+    # print((det_list == det_obs))
     if det_list == det_obs:
         x = [p]
     else:
@@ -226,5 +229,5 @@ def forward(v):
 
 
 if __name__ == "__main__":
-    p = forward([70, np.arccos(0.1), 0.5])
+    p = forward([70, 0.5, 0.5])
     print(p)
