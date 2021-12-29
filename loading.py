@@ -51,7 +51,7 @@ mre_1d_loaded = swyft.MarginalRatioEstimator.load(
 
 # create a simple violin plot
 
-n_rejection_samples = 5000
+n_rejection_samples = 1000
 
 print("producing posterior")
 
@@ -60,6 +60,8 @@ posterior_1d = swyft.MarginalPosterior(mre_1d_loaded, prior_loaded)
 print("sampling")
 
 samples_1d = posterior_1d.sample(n_rejection_samples, observation_o)
+
+print(samples_1d)
 
 # _ = swyft.violin(samples_1d)
 

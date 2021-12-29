@@ -6,7 +6,7 @@ from events import *
 device = 'cpu'  # TODO: install CUDA toolkit for Win10
 k = 1 # number of free observed event parameters
 
-n_training_samples = 100
+n_training_samples = 1000
 observation_key = "x"
 
 n_weighted_samples = 10_000
