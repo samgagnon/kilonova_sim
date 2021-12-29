@@ -5,7 +5,7 @@ import swyft
 from forward import *
 
 
-# a TMNRE prior function take a random variable between 0 and 1 and produces an input vector from a prior of your choice
+# a TMNRE prior function takes a random variable between 0 and 1 and produces an input vector from a prior of your choice
 
 # nobs
 # low = np.array([50.0, 0.0, 0.0])
@@ -15,9 +15,7 @@ low = np.array([50.0, 0.0])
 high = np.array([100.0, 1.0])
 prior = swyft.get_uniform_prior(low, high)
 
-# v_o = np.array([50.0, 0.5, 0.5])
-v_o = np.array([50.0, 0.5])
-observation_o = forward(v_o)
+observation_o = {'x': np.array([1.0])}
 
 n_observation_features = observation_o[observation_key].shape[0]
 observation_shapes = {key: value.shape for key, value in observation_o.items()}
@@ -36,18 +34,12 @@ store.simulate()
 
 dataset = swyft.Dataset(n_training_samples, prior, store)
 
-# print(len(dataset))
-
 # def do_round_1d(bound, observation_focus):
-
-#     print(len(store))
 
 #     store.add(n_training_samples, prior, bound=bound)
 #     store.simulate()
 
 #     dataset = swyft.Dataset(n_training_samples, prior, store, bound = bound)
-
-#     # print(len(dataset))
 
 #     network_1d = swyft.get_marginal_classifier(
 #         observation_key=observation_key,
@@ -70,7 +62,7 @@ dataset = swyft.Dataset(n_training_samples, prior, store)
 
 # bound = None
 # for i in range(3):
-#     posterior_1d, bound = do_round_1d(bound, observation_o)
+#     posterior_1d, bound = do_round_1d(bound, {'x': np.array([1.0])})
 
 # # create a simple violin plot
 
@@ -114,28 +106,13 @@ for i in range(dlen):
 
 mre_1d.train(dataset)
 
-# create a simple violin plot
 
-n_rejection_samples = 5000
+# SAVING
 
-print("producing posterior")
+prior_filename = "example3.prior.pt"
+dataset_filename = "examples3.dataset.pt"
+mre_1d_filename = "examples3.mre_1d.pt"
 
-posterior_1d = swyft.MarginalPosterior(mre_1d, prior)
-
-print("sampling")
-
-samples_1d = posterior_1d.sample(n_rejection_samples, observation_o)
-
-# _ = swyft.violin(samples_1d)
-
-# create row of histograms
-
-# _, _ = swyft.hist1d(samples_1d, kde=True)
-
-key = list(samples_1d.keys())[0]
-print(key)
-
-plt.hist(samples_1d[key], 100)
-plt.xlim(50, 100)
-
-plt.show()
+prior.save(prior_filename)
+dataset.save(dataset_filename)
+mre_1d.save(mre_1d_filename)
