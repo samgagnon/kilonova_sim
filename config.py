@@ -25,6 +25,7 @@ else:
 
 n_parameters = 1 + (k * n_obs) + (k + 1) * n_nobs # number of free parameters (event parameters plus H0)
 
-# marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indices(n_parameters)
+marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indices(n_parameters)
+# marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indices(2)
 
-marginal_indices_1d = (0,)
+# H0_index_1d = (0,)
