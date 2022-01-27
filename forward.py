@@ -229,5 +229,16 @@ def forward(v):
 
 
 if __name__ == "__main__":
-    p = forward([70, 0.5, 0.5])
+    M1 = m11[0]
+    M2 = m11[1]
+    Q = M1/M2
+    Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
+    fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
+              "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
+              "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
+              "q": Q, "cos_theta": v11, "cos_theta_open": 0.707107,\
+              "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
+              "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
+              "temperature_shock": 100, "lumdist": DT11, "redshift": ZT11}
+    p = light_curve(my_fitter, fixed_params)
     print(p)
