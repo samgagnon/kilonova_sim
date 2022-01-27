@@ -123,8 +123,8 @@ def v_from_CDF(d_true, v_true, m1, m2, dv):
 if __name__ == "__main__":
     from config import *
     xr = np.linspace(0.7, 0.95, int(1e2))
-    vr = [v_from_CDF(d_true, 0.9, 1.4, 1.4, i) for i in xr]
-    p = [p_DV(d_true, 0.9, m1_true, m2_true, v, d_true) for v in vr]
+    vr = [v_from_CDF(DT1, 0.9, 1.4, 1.4, i) for i in xr]
+    p = [p_DV(DT1, 0.9, m1[0], m1[1], v, DT1) for v in vr]
     e = np.array(p).argmax()
     print(xr[e])
     print(vr[e])
