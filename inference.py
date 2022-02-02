@@ -4,19 +4,25 @@ import swyft
 
 from forward import *
 
-
 # a TMNRE prior function takes a random variable between 0 and 1 and produces an input vector from a prior of your choice
 
-# nobs
-# low = np.array([50.0, 0.0, 0.0])
-# high = np.array([100.0, 1.0, 1.0])
-# 1obs 1nobs
-low = np.array([50.0, 0.0, 0.0, 0.0])
-high = np.array([100.0, 1.0, 1.0, 1.0])
-# obs
+# by convention, nobs parameters preceed obs parameters
 
-# low = np.array([50.0, 0.0])
-# high = np.array([100.0, 1.0])
+# define prior chunks
+global_low_list = [50.0]
+global_high_list = [100.0]
+nobs_low_list = [0.0]*((k+1)*n_nobs)
+obs_low_list = [0.0]*(k*n_obs)
+nobs_high_list = [1.0]*((k+1)*n_nobs)
+obs_high_list = [1.0]*(k*n_obs)
+
+# append prior chunks
+low_list = global_low_list + nobs_low_list + obs_low_list
+high_list = global_high_list + nobs_high_list + obs_high_list
+
+# instantiate prior
+low = np.array(low_list)
+high = np.array(high_list)
 prior = swyft.get_uniform_prior(low, high)
 
 observation_o = {'x': np.array([1.0])}
@@ -37,6 +43,7 @@ store.add(n_training_samples, prior)
 store.simulate()
 
 dataset = swyft.Dataset(n_training_samples, prior, store)
+
 
 def do_round_2d(bound, observation_focus):
     store.add(n_training_samples, prior, bound=bound)

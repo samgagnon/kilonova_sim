@@ -4,9 +4,11 @@ from events import *
 
 # set simulator parameters
 device = 'cpu'  # TODO: install CUDA toolkit for Win10
-k = 1 # number of free observed event parameters
+k = 3 # number of free observed event parameters
+# theshold for rejecting samples pre-light curve generation
+threshold = 1e-4
 
-n_training_samples = 1000
+n_training_samples = 30
 observation_key = "x"
 
 n_weighted_samples = 10_000

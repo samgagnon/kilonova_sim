@@ -41,6 +41,7 @@ m10 = (1.29790736e+00, 1.64149555e+00)
 m11 = (1.75336110e+00,  1.34787474e+00)
 
 # mass uncertainties
+dm1 = (1e-1, 1e-1)
 dm2 = (5.95623030e-02, 8.42605827e-02)
 dm3 = (9.12651050e-02, 6.81812157e-02)
 dm4 = (1.02764883e-01, 6.27851754e-02)
@@ -60,27 +61,50 @@ v2, v3, v4, v5, v6, v7, v8, v9, v10, v11 = 0.13039641, 0.63846131, 0.9070467, 0.
 o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = True, True, False, True, True, \
     False, False, False, False, True
 
-# z, dl, m1, m2, v
-# event_list = [[z_true, d_true, m1_true, m2_true, 0.1, False],
-# [z_true, d_true, m1_true, m2_true, 0.9, True]]
-# event_list = [[ZT1, DT1, m1[0], m1[1], 0.9, True],\
-    # [ZT1, DT1, m1[0], m1[1], 0.1, False]]
-# event_list = [[z_true, d_true, m1_true, m2_true, 0.1, False]]
-
 # split the event list into two lists, one for obs (true) and one for nobs (false)
-# obs_list = None
-# nobs_list = [[ZT1, DT1, m1[0], m1[1], 0.1, False]]
 
-# obs_list = [[ZT1, DT1, m1[0], m1[1], 0.9, True]]
-nobs_list = None
+obs_list = None
 
+# obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+#     [ZT3, DT3, m3, dm3, v3, o3],\
+#     [ZT5, DT5, m5, dm5, v5, o5],\
+#     [ZT6, DT6, m6, dm6, v6, o5],\
+#     [ZT11, DT11, m11, dm11, v11, o11]]
 
-event_list = [[ZT2, DT2, m2[0], m2[1], v2, o2],\
-    [ZT3, DT3, m3[0], m3[1], v3, o3]]
+nobs_list = [[ZT4, DT4, m4, dm4, v4, o4],\
+    [ZT7, DT7, m7, dm7, v7, o7],\
+    [ZT8, DT8, m8, dm8, v8, o8],\
+    [ZT9, DT9, m9, dm9, v9, o9],\
+    [ZT10, DT10, m10, dm10, v10, o10]]
 
-obs_list = [[ZT2, DT2, m2[0], m2[1], v2, o2],\
-    [ZT3, DT3, m3[0], m3[1], v3, o3]]
+event_list = [[ZT4, DT4, m4, dm4, v4, o4],\
+    [ZT7, DT7, m7, dm7, v7, o7],\
+    [ZT8, DT8, m8, dm8, v8, o8],\
+    [ZT9, DT9, m9, dm9, v9, o9],\
+    [ZT10, DT10, m10, dm10, v10, o10]]
 
+# event_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+#     [ZT3, DT3, m3, dm3, v3, o3],\
+#     [ZT5, DT5, m5, dm5, v5, o5],\
+#     [ZT6, DT6, m6, dm6, v6, o5],\
+#     [ZT4, DT4, m4, dm4, v4, o4],\
+#     [ZT7, DT7, m7, dm7, v7, o7],\
+#     [ZT8, DT8, m8, dm8, v8, o8],\
+#     [ZT9, DT9, m9, dm9, v9, o9],\
+#     [ZT10, DT10, m10, dm10, v10, o10],\
+#     [ZT11, DT11, m11, dm11, v11, o11]]
+
+# nobs_list = [[ZT1, DT1, m1, dm1, 0.1, False]]
+
+n_events = len(event_list)
+if nobs_list is not None:
+    n_nobs = len(nobs_list)
+else:
+    n_nobs = 0
+if obs_list is not None:
+    n_obs = len(obs_list)
+else:
+    n_obs = 0
 
 det_obs = [event[-1] for event in event_list]
 

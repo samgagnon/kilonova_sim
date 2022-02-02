@@ -10,7 +10,8 @@ from events import *
 from config import *
 from distance import *
 
-
+# instantiate pmesh dictionary
+pdict = gen_pDV_dists(event_list, plot=False)
 
 # instantiate fitter
 my_fitter = mosfit.fitter.Fitter(quiet=False, test=True, offline=False)
@@ -94,15 +95,20 @@ def light_curve(fitfunc, fixed_params):
 
 def nobs_forward(H0, ve, DL, pDL, event):
     # get free event parameters
-    v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
-    du = ve[1] # distance variable
+    v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+    # du = ve[1] # distance variable
+    if k>2:
+        M1, M2 = m_from_dm((ve[2], ve[3]), event)
+    else:
+        M1 = event[2]
+        M2 = event[3]
     # use results from GWToolbox to get the true DL, M1, M2, v
     TDL = event[1]
-    M1 = event[2]
-    M2 = event[3]
-    VT = event[4]
     # derived mass quantities
-    Q = M1/M2
+    if M1 < M2:
+        Q = M1/M2
+    else:
+        Q = M2/M1
     Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
     # create a cosmology from H0 and generate the true redshift
     # in this sample cosmology
@@ -124,14 +130,20 @@ def nobs_forward(H0, ve, DL, pDL, event):
 
 def obs_forward(H0, ve, event):
     # get free event parameters
-    v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
+    v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+    if k>2:
+        M1, M2 = m_from_dm((ve[1], ve[2]), event)
+    else:
+        M1 = event[2]
+        M2 = event[3]
     # use results from GWToolbox to get the true DL, M1, M2
     TZ = event[0]
     TDL = event[1]
-    M1 = event[2]
-    M2 = event[3]
     # derived mass quantities
-    Q = M1/M2
+    if M1 < M2:
+        Q = M1/M2
+    else:
+        Q = M2/M1
     Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
     # create a cosmology from H0 and generate the true redshift
     # in this sample cosmology
@@ -140,7 +152,7 @@ def obs_forward(H0, ve, event):
     # "distance in cosmology"
     DIC = universe.luminosity_distance(TZ).value
     # probability density of given cosmology-assigned distance at sampled angle v0
-    dprob, dpm, dps = p_DV(event[1], event[4], event[2], event[3], v0, DIC)
+    dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
     dprob /= dpm
     # print("dprob:", dprob)
 #     dprob = 1.0
@@ -162,60 +174,65 @@ def forward(v):
     H0 = v[0]
     print("Input Vector:", v)
     det_list = []
-    i = 1
-    N = 1
     # first, loop through observations to see if observed distances make H0 illegal
     if obs_list is not None:
+        i = 0
+        ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
         for event in obs_list:
-            ve = v[N:i+k*i]
-            N = i+k*i
+            ve = ve_list[i]
             i += 1
             universe = cosmo.FlatLambdaCDM(H0, 0.3)
             # "distance in cosmology"
             DIC = universe.luminosity_distance(event[0]).value
             # probability density of given cosmology-assigned distance at sampled angle v0
-            v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
-            dprob, dpm, dps = p_DV(event[1], event[4], event[2], event[3], v0, DIC)
-            if dprob/dps < 1e-4:
+            v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+            dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
+            if dprob/dps < threshold:
                 return dict(x=np.array([0.0]))
     nobs_dl = []
-    if nobs_list is not None:    
+    if nobs_list is not None:
+        i = 0
+        ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
-            ve = v[N:i+(k+1)*i]
-            N = i+(k+1)*i
+            ve = ve_list[i]
             i += 1
             # generate a possible distance from the random variables du, v0
             # and the prior distribution (depending on true event parameters)
-            v0 = v_from_CDF(event[1], event[4], event[2], event[3], ve[0])
-            DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2], event[3], v0, ve[1])
+            pdist = pdict[str(event)]
+            v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+            DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2][0], event[2][1], v0, ve[1], pdist)
 
             # TODO: produce similar list for v in both this and obs_list
 
             nobs_dl += [[DL, pDL/dpm]]
-#             print(DL, pDL)
-            if pDL/dps < 1e-4:
+            if pDL/dps < threshold:
                 return dict(x=np.array([0.0]))
-    i = 1
     j = 0
-    N = 1
     p = 1
     if obs_list is not None:
+        i = 0
+        ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
         for event in obs_list:
-            ve = v[N:i+k*i]
-            N = i+k*i
+            ve = ve_list[i]
             i += 1
             det, pobs = obs_forward(H0, ve, event)
+            if det is False:
+                return dict(x=np.array([0.0]))
             det_list += [det]
             p *= pobs
     if nobs_list is not None:
+        i = 0
+        ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
-            ve = v[N:i+(k+1)*i]
-            N = i+(k+1)*i
+            ve = ve_list[i]
             i += 1
 #             print(nobs_dl[j])
             DL, pDL = nobs_dl[j]
             j += 1
             det, pobs = nobs_forward(H0, ve, DL, pDL, event)
+            if det is True:
+                print("wrongo")
+                return dict(x=np.array([0.0]))
             det_list += [det]
             p *= pobs
     # print(det_list)
