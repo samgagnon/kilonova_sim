@@ -1,5 +1,12 @@
 import astropy.cosmology as cosmo
 
+# how many observations?
+o1 = False
+o5 = True
+
+# are non-observations included?
+n = True
+
 # assume a true value for the Hubble constant
 u_true = cosmo.FlatLambdaCDM(70, 0.3)
 # set the true redshift of the events
@@ -63,38 +70,58 @@ o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = True, True, False, True, True, \
 
 # split the event list into two lists, one for obs (true) and one for nobs (false)
 
-obs_list = None
+if o5:
+    if n:
+        obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+            [ZT3, DT3, m3, dm3, v3, o3],\
+            [ZT5, DT5, m5, dm5, v5, o5],\
+            [ZT6, DT6, m6, dm6, v6, o6],\
+            [ZT11, DT11, m11, dm11, v11, o11]]
 
-# obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
-#     [ZT3, DT3, m3, dm3, v3, o3],\
-#     [ZT5, DT5, m5, dm5, v5, o5],\
-#     [ZT6, DT6, m6, dm6, v6, o5],\
-#     [ZT11, DT11, m11, dm11, v11, o11]]
+        nobs_list = [[ZT4, DT4, m4, dm4, v4, o4],\
+            [ZT7, DT7, m7, dm7, v7, o7],\
+            [ZT8, DT8, m8, dm8, v8, o8],\
+            [ZT9, DT9, m9, dm9, v9, o9],\
+            [ZT10, DT10, m10, dm10, v10, o10]]
 
-nobs_list = [[ZT4, DT4, m4, dm4, v4, o4],\
-    [ZT7, DT7, m7, dm7, v7, o7],\
-    [ZT8, DT8, m8, dm8, v8, o8],\
-    [ZT9, DT9, m9, dm9, v9, o9],\
-    [ZT10, DT10, m10, dm10, v10, o10]]
+        event_list = [[ZT4, DT4, m4, dm4, v4, o4],\
+            [ZT7, DT7, m7, dm7, v7, o7],\
+            [ZT8, DT8, m8, dm8, v8, o8],\
+            [ZT9, DT9, m9, dm9, v9, o9],\
+            [ZT10, DT10, m10, dm10, v10, o10],\
+            [ZT2, DT2, m2, dm2, v2, o2],\
+            [ZT3, DT3, m3, dm3, v3, o3],\
+            [ZT5, DT5, m5, dm5, v5, o5],\
+            [ZT6, DT6, m6, dm6, v6, o6],\
+            [ZT11, DT11, m11, dm11, v11, o11]]
+    else:
+        obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+            [ZT3, DT3, m3, dm3, v3, o3],\
+            [ZT5, DT5, m5, dm5, v5, o5],\
+            [ZT6, DT6, m6, dm6, v6, o6],\
+            [ZT11, DT11, m11, dm11, v11, o11]]
 
-event_list = [[ZT4, DT4, m4, dm4, v4, o4],\
-    [ZT7, DT7, m7, dm7, v7, o7],\
-    [ZT8, DT8, m8, dm8, v8, o8],\
-    [ZT9, DT9, m9, dm9, v9, o9],\
-    [ZT10, DT10, m10, dm10, v10, o10]]
+        nobs_list =  None
 
-# event_list = [[ZT2, DT2, m2, dm2, v2, o2],\
-#     [ZT3, DT3, m3, dm3, v3, o3],\
-#     [ZT5, DT5, m5, dm5, v5, o5],\
-#     [ZT6, DT6, m6, dm6, v6, o5],\
-#     [ZT4, DT4, m4, dm4, v4, o4],\
-#     [ZT7, DT7, m7, dm7, v7, o7],\
-#     [ZT8, DT8, m8, dm8, v8, o8],\
-#     [ZT9, DT9, m9, dm9, v9, o9],\
-#     [ZT10, DT10, m10, dm10, v10, o10],\
-#     [ZT11, DT11, m11, dm11, v11, o11]]
+        event_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+            [ZT3, DT3, m3, dm3, v3, o3],\
+            [ZT5, DT5, m5, dm5, v5, o5],\
+            [ZT6, DT6, m6, dm6, v6, o6],\
+            [ZT11, DT11, m11, dm11, v11, o11]]
 
-# nobs_list = [[ZT1, DT1, m1, dm1, 0.1, False]]
+
+if o1:
+    if n:
+        obs_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
+        nobs_list = [[ZT1, DT1, m1, dm1, 0.1, False]]
+
+        event_list = [[ZT1, DT1, m1, dm1, 0.1, False],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]
+    else:
+        obs_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
+        nobs_list = None
+        event_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
+
 
 n_events = len(event_list)
 if nobs_list is not None:

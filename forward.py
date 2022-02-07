@@ -100,8 +100,8 @@ def nobs_forward(H0, ve, DL, pDL, event):
     if k>2:
         M1, M2 = m_from_dm((ve[2], ve[3]), event)
     else:
-        M1 = event[2]
-        M2 = event[3]
+        M1 = event[2][0]
+        M2 = event[2][1]
     # use results from GWToolbox to get the true DL, M1, M2, v
     TDL = event[1]
     # derived mass quantities
@@ -134,8 +134,8 @@ def obs_forward(H0, ve, event):
     if k>2:
         M1, M2 = m_from_dm((ve[1], ve[2]), event)
     else:
-        M1 = event[2]
-        M2 = event[3]
+        M1 = event[2][0]
+        M2 = event[2][1]
     # use results from GWToolbox to get the true DL, M1, M2
     TZ = event[0]
     TDL = event[1]
@@ -205,6 +205,7 @@ def forward(v):
             # TODO: produce similar list for v in both this and obs_list
 
             nobs_dl += [[DL, pDL/dpm]]
+            print(pDL/dps)
             if pDL/dps < threshold:
                 return dict(x=np.array([0.0]))
     j = 0
@@ -217,9 +218,10 @@ def forward(v):
             i += 1
             det, pobs = obs_forward(H0, ve, event)
             if det is False:
+                print(det, 'bad')
                 return dict(x=np.array([0.0]))
             det_list += [det]
-            p *= pobs
+            p += pobs
     if nobs_list is not None:
         i = 0
         ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
@@ -231,17 +233,18 @@ def forward(v):
             j += 1
             det, pobs = nobs_forward(H0, ve, DL, pDL, event)
             if det is True:
-                print("wrongo")
+                print(det, 'bad')
                 return dict(x=np.array([0.0]))
             det_list += [det]
-            p *= pobs
-    # print(det_list)
-    # print(det_obs)
-    # print((det_list == det_obs))
-    if det_list == det_obs:
-        x = [p]
-    else:
-        x = [0.0]
+            # possibly remove pobs for nobs?
+            p += pobs
+    print((det_list == det_obs))
+    # if det_list == det_obs:
+        # print(p)
+        # x = [p]
+    # else:
+        # x = [0.0]
+    x = [p]
     return dict(x=np.array(x))
 
 

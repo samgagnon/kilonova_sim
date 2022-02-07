@@ -43,8 +43,9 @@ store = swyft.Store.memory_store(simulator)
 
 print("loading bound")
 
-bound_loaded = swyft.Bound.load(bound_filename)
+# bound_loaded = swyft.Bound.load(bound_filename)
 
+bound_loaded=None
 
 print("loading prior")
 
@@ -54,6 +55,10 @@ dataset_loaded = swyft.Dataset.load(
     store=store
 )
 
+
+print(list(dataset_loaded))
+print(dataset_loaded.__len__())
+# print(dataset_loaded.__getitem__(0))
 
 network_new = swyft.get_marginal_classifier(
     observation_key=observation_key,
@@ -83,8 +88,11 @@ posterior_1d = swyft.MarginalPosterior(mre_1d_loaded, prior_loaded, bound=bound_
 print("sampling")
 
 samples_1d = posterior_1d.sample(n_rejection_samples, observation_o)
-key = list(samples_1d.keys())[0]
+key = marginal_indices_1d[0]
 
 print(samples_1d[key])
+
+# plt.hist(samples_1d[key])
+# plt.show()
 
 np.savetxt("H0_samples.txt", samples_1d[key])

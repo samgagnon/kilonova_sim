@@ -8,7 +8,7 @@ k = 3 # number of free observed event parameters
 # theshold for rejecting samples pre-light curve generation
 threshold = 1e-4
 
-n_training_samples = 30
+n_training_samples = 1000
 observation_key = "x"
 
 n_weighted_samples = 10_000
