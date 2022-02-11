@@ -46,13 +46,12 @@ def dp(D_0, D, v_0, v, m1, m2):
     Dd = D/D_0
     e = np.exp(-1/(2*d1**2) * (v/Dd - v_0)**2 - 
               1/(2*d2**2)*((1+v**2)/(2*Dd) - (1+v_0**2)/2)**2)
-    return Dd**2*e*H(D/D_0)*H(Dd)*H(Dmax/D_0 - Dd)*H(1-v**2)
+    return e*H(D/D_0)*H(Dd)*H(Dmax/D_0 - Dd)*H(1-v**2) # Dd**2* prefactor removed to undo low H0 bias
 
 
 def pDV_dist(D0, v0, m1, m2, plot=False):
-    thetaline = np.linspace(0, np.pi/2, 100)
-    vline = np.cos(thetaline)
-    dline = np.linspace(D0/3, D0*5, 100)
+    vline = np.linspace(0, 1, 1000)
+    dline = np.linspace(D0/3, D0*5, 1000)
     vv, dd = np.meshgrid(vline, dline)
     positions = np.vstack([vv.ravel(), dd.ravel()])
     values = np.vstack([vline, dline])
@@ -65,7 +64,7 @@ def pDV_dist(D0, v0, m1, m2, plot=False):
         fig.set_figheight(10)
         ax = plt.axes(projection='3d')
         surf = ax.plot_surface(vv, dd, pmesh/dps, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', zorder=1)
-        ax.plot_surface(vv, dd, np.ones((100, 100))*1e-5, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', zorder=2)
+        # ax.plot_surface(vv, dd, np.ones((1000, 1000))*1e-5, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', zorder=2)
         # ax.plot(0.3, 400, pm, 'k.', zorder=20)
         # ax.plot(0.34, 453, pm, 'kx', zorder=20)
         # ax.plot(0.3003308776117506, 400.5338672005339, pm, 'r.', zorder=20)
@@ -114,7 +113,7 @@ def D_vdu(d_true, v_true, m1, m2, v_guess, du, pdist):
     return pdist[-1][dloc], pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
 
 
-def p_DV(d_true, v_true, m1, m2, v_guess, d_guess):
+def p_DV(pdist, v_guess, d_guess):
     """
     -d_true: true event luminosity distance
     -v_true: true event angle variable
@@ -125,17 +124,20 @@ def p_DV(d_true, v_true, m1, m2, v_guess, d_guess):
     
     returns: probability of guess given prior
     """
-    pdist = pDV_dist(d_true, v_true, m1, m2)
     vloc = np.abs(pdist[3] - v_guess).argmin()
     dloc = np.abs(pdist[-1] - d_guess).argmin()
     am = pdist[0].argmax()
     
+    # import matplotlib.pyplot as plt
+    # plt.plot(pdist[-1], pdist[0][:,vloc])
+    # plt.axvline(d_guess)
+    # plt.show()
     ovloc = np.abs(pdist[3] - pdist[2][0][am]).argmin()
     odloc = np.abs(pdist[-1] - pdist[2][1][am]).argmin()
     return pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
 
 
-def v_from_CDF(d_true, v_true, m1, m2, dv):
+def v_from_CDF(pdist, dv):
     """
     Generates v from GW cdf
     -d_true: true event luminosity distance
@@ -147,12 +149,35 @@ def v_from_CDF(d_true, v_true, m1, m2, dv):
     returns: 
     -v: cosine of observation angle
     """
-    pdist = pDV_dist(d_true, v_true, m1, m2)
     vdist = np.sum(pdist[0], 0)
     vdist /= vdist.sum()
     vcdf = np.cumsum(vdist)
     vloc = np.abs(vcdf - dv).argmin()
     v = pdist[3][vloc]
+    return v
+
+def v_from_DCDF(pdist, DL, dv):
+    """
+    Generates v from GW cdf
+    -d_true: true event luminosity distance
+    -v_true: true event angle variable
+    -m1: true event m1
+    -m2: true event m2
+    -dv: random variable to determine v from inverse CDF
+
+    returns: 
+    -v: cosine of observation angle
+    """
+    dloc = np.abs(pdist[-1] - DL).argmin()
+    vdist = pdist[0][dloc]
+    vdist /= vdist.sum()
+    vcdf = np.cumsum(vdist)
+    vloc = np.abs(vcdf - dv).argmin()
+    v = pdist[3][vloc]
+    # import matplotlib.pyplot as plt
+    # plt.plot(pdist[3], vcdf)
+    # plt.axvline(v)
+    # plt.show()
     return v
 
 def m_from_dm(dm_tuple, event):
@@ -165,11 +190,11 @@ def m_from_dm(dm_tuple, event):
     mean_tuple = event[2]
     std_tuple = event[3]
     mx = np.linspace(1.1, 2.5, 1000)
-    gaus1 = np.exp((mx - mean_tuple[0])**2/(2*std_tuple[0]**2))
+    gaus1 = np.exp(-1*(mx - mean_tuple[0])**2/(2*std_tuple[0]**2))
     gcdf1 = np.cumsum(gaus1)
     i1 = np.abs(dm_tuple[0] - gcdf1).argmin()
     m1 = mx[i1]
-    gaus2 = np.exp((mx - mean_tuple[1])**2/(2*std_tuple[1]**2))
+    gaus2 = np.exp(-1*(mx - mean_tuple[1])**2/(2*std_tuple[1]**2))
     gcdf2 = np.cumsum(gaus2)
     i2 = np.abs(dm_tuple[1] - gcdf2).argmin()
     m2 = mx[i2]
@@ -177,9 +202,30 @@ def m_from_dm(dm_tuple, event):
 
 if __name__ == "__main__":
     from config import *
-    xr = np.linspace(0.7, 0.95, int(1e2))
-    vr = [v_from_CDF(DT1, 0.9, 1.4, 1.4, i) for i in xr]
-    p = [p_DV(DT1, 0.9, m1[0], m1[1], v, DT1) for v in vr]
-    e = np.array(p).argmax()
-    print(xr[e])
-    print(vr[e])
+    # xr = np.linspace(0.7, 0.95, int(1e2))
+    # vr = [v_from_CDF(DT1, 0.9, 1.4, 1.4, i) for i in xr]
+    # p = [p_DV(DT1, 0.9, m1[0], m1[1], v, DT1) for v in vr]
+    # e = np.array(p).argmax()
+    # print(xr[e])
+    # print(vr[e])
+    gen_pDV_dists(event_list, plot=True)
+    # import matplotlib.pyplot as plt
+    # from astropy import units as u
+    # from astropy import constants as c
+    # universe = cosmo.FlatLambdaCDM(70, 0.3)
+    # D0 = 40
+    # z = cosmo.z_at_value(universe.luminosity_distance, D0*u.Mpc)
+    # v0 = np.cos(np.linspace(0, np.pi/2, 5))
+    # # thetaline = np.linspace(0, np.pi, 1000)
+    # # vline = np.cos(thetaline)
+    # vline = np.linspace(-1, 1, 1000)
+    # dline = np.linspace(D0/3, D0*5, 1000)
+    # vv, dd = np.meshgrid(vline, dline)
+    # positions = np.vstack([vv.ravel(), dd.ravel()])
+    # values = np.vstack([vline, dline])
+    # for v in v0:
+    #     pmesh = dp(D0, dd, v, vv, 1.4, 1.4)
+    #     plt.plot(z*c.c.value/(dline*1e3), np.sum(pmesh, 1), label=str(np.arccos(v)*180/np.pi)+'$^\circ$')
+    # plt.axvline(70, color='r')
+    # plt.legend()
+    # plt.show()

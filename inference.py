@@ -26,7 +26,7 @@ low = np.array(low_list)
 high = np.array(high_list)
 prior = swyft.get_uniform_prior(low, high)
 
-observation_o = {'x': np.array([n_events])}
+observation_o = {'x': np.array([1.0])}
 
 n_observation_features = observation_o[observation_key].shape[0]
 observation_shapes = {key: value.shape for key, value in observation_o.items()}
@@ -82,7 +82,7 @@ def do_round_1d(bound, observation_focus):
     return posterior_1d, new_bound
 
 bound = None
-for i in range(3):
+for i in range(1):
     tic = time.time()
     posterior_1d, bound = do_round_1d(bound, observation_o)
     toc = time.time()

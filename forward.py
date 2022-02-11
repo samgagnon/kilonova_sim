@@ -5,6 +5,7 @@ import astropy.units as u
 from scipy.stats import truncnorm
 from astropy.constants import c
 from astropy.cosmology import z_at_value
+from scipy.special import erfc
 
 from events import *
 from config import *
@@ -88,22 +89,21 @@ def light_curve(fitfunc, fixed_params):
 #     print(obs_probs)
 #     print(detect)
     detect = min(obs_mags) <= sig10
-#     print(True in detect)
 #     return (True in detect), pobs
     return detect, 1
 
 
 def nobs_forward(H0, ve, DL, pDL, event):
     # get free event parameters
-    v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
-    # du = ve[1] # distance variable
+    pdist = pdict[str(event)]
+    v0 = v_from_CDF(pdist, ve[0])
     if k>2:
         M1, M2 = m_from_dm((ve[2], ve[3]), event)
     else:
         M1 = event[2][0]
         M2 = event[2][1]
     # use results from GWToolbox to get the true DL, M1, M2, v
-    TDL = event[1]
+    # TDL = event[1]
     # derived mass quantities
     if M1 < M2:
         Q = M1/M2
@@ -119,7 +119,7 @@ def nobs_forward(H0, ve, DL, pDL, event):
     fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
               "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
               "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-              "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
+              "q": Q, "cos_theta": 1 - v0, "cos_theta_open": 0.707107,\
               "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
               "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
               "temperature_shock": 100, "lumdist": DL, "redshift": ZIC}
@@ -130,7 +130,7 @@ def nobs_forward(H0, ve, DL, pDL, event):
 
 def obs_forward(H0, ve, event):
     # get free event parameters
-    v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+    pdist = pdict[str(event)]
     if k>2:
         M1, M2 = m_from_dm((ve[1], ve[2]), event)
     else:
@@ -151,29 +151,29 @@ def obs_forward(H0, ve, event):
     universe = cosmo.FlatLambdaCDM(H0, 0.3)
     # "distance in cosmology"
     DIC = universe.luminosity_distance(TZ).value
+    v0 = v_from_DCDF(pdist, DIC, ve[0])
     # probability density of given cosmology-assigned distance at sampled angle v0
-    dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
-    dprob /= dpm
+    # dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
+    # dprob, dpm, dps = p_DV(pdist, v0, DIC)
+    # dprob /= dpm
     # print("dprob:", dprob)
 #     dprob = 1.0
-    # I also need to calculate the probability of this distance being allowed
-    # and return that probability to be used in the summary statistic
     fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
               "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
               "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-              "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
+              "q": Q, "cos_theta": 1 - v0, "cos_theta_open": 0.707107,\
               "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
               "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
               "temperature_shock": 100, "lumdist": DIC, "redshift": TZ}
     det, pobs = light_curve(my_fitter, fixed_params)
-    return det, dprob #*dobs
+    return det, pobs
 
 
 def forward(v):
     # get terms from input vector
     H0 = v[0]
-    print("Input Vector:", v)
-    det_list = []
+    print("Input H0:", H0)
+    p = 0
     # first, loop through observations to see if observed distances make H0 illegal
     if obs_list is not None:
         i = 0
@@ -185,12 +185,27 @@ def forward(v):
             # "distance in cosmology"
             DIC = universe.luminosity_distance(event[0]).value
             # probability density of given cosmology-assigned distance at sampled angle v0
-            v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
-            dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
-            if dprob/dps < threshold:
-                return dict(x=np.array([0.0]))
+            pdist = pdict[str(event)]
+
+            # compute summary statistic
+            v0 = v_from_DCDF(pdist, DIC, ve[0])
+            vline = np.linspace(0, 1, 1000)
+            dline = np.linspace(DIC/3, DIC*5, 1000)
+            gi = np.abs(v0 - vline).argmin()
+            pslice = pdist[0][:, gi]
+            pslice /= pslice.sum()
+            mean = np.average(dline, weights=pslice)
+            var = np.average((dline-mean)**2, weights=pslice)
+            # print(DIC, mean, var)
+            p += (DIC-mean)**2/(2*var)
+            # p *= erfc(np.abs(DIC-mean)/np.sqrt(var))
+
+            dprob, dpm, dps = p_DV(pdist, v0, DIC)
+            # if dprob/dps < threshold:
+            #     return dict(x=np.array([0.0]))
     nobs_dl = []
     if nobs_list is not None:
+        # is this bit really necessary? I think not.
         i = 0
         ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
@@ -199,17 +214,15 @@ def forward(v):
             # generate a possible distance from the random variables du, v0
             # and the prior distribution (depending on true event parameters)
             pdist = pdict[str(event)]
-            v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+            # v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
+            v0 = v_from_CDF(pdist, ve[0])
+
             DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2][0], event[2][1], v0, ve[1], pdist)
-
             # TODO: produce similar list for v in both this and obs_list
-
             nobs_dl += [[DL, pDL/dpm]]
-            print(pDL/dps)
             if pDL/dps < threshold:
                 return dict(x=np.array([0.0]))
     j = 0
-    p = 1
     if obs_list is not None:
         i = 0
         ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
@@ -220,45 +233,52 @@ def forward(v):
             if det is False:
                 print(det, 'bad')
                 return dict(x=np.array([0.0]))
-            det_list += [det]
-            p += pobs
+            # pdist = pdict[str(event)]
+            # dprob, dpm, dps = p_DV(pdist, v0, DIC)
+            # p += [pobs]
     if nobs_list is not None:
         i = 0
         ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
             ve = ve_list[i]
             i += 1
-#             print(nobs_dl[j])
             DL, pDL = nobs_dl[j]
             j += 1
             det, pobs = nobs_forward(H0, ve, DL, pDL, event)
             if det is True:
                 print(det, 'bad')
                 return dict(x=np.array([0.0]))
-            det_list += [det]
             # possibly remove pobs for nobs?
-            p += pobs
-    print((det_list == det_obs))
-    # if det_list == det_obs:
-        # print(p)
-        # x = [p]
-    # else:
-        # x = [0.0]
-    x = [p]
+            # p *= pobs
+    x = [erfc(np.sqrt(p/(n_obs-1)))]
     return dict(x=np.array(x))
 
 
 if __name__ == "__main__":
-    M1 = m11[0]
-    M2 = m11[1]
-    Q = M1/M2
-    Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
-    fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
-              "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
-              "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-              "q": Q, "cos_theta": v11, "cos_theta_open": 0.707107,\
-              "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
-              "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
-              "temperature_shock": 100, "lumdist": DT11, "redshift": ZT11}
-    p = light_curve(my_fitter, fixed_params)
-    print(p)
+    # event = event_list[0]
+    # M1 = event[2][0]
+    # M2 = event[2][1]
+    # Q = M1/M2
+    # Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
+    # print(Q, Mchirp)
+    # print(event[0], event[1])
+    # fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
+    #           "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
+    #           "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
+    #           "q": Q, "cos_theta": 0.89, "cos_theta_open": 0.707107,\
+    #           "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
+    #           "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
+    #           "temperature_shock": 100, "lumdist": 141, "redshift": event[0]}
+    # p = light_curve(my_fitter, fixed_params)
+    # print(p)
+    a = 0
+    outlist = []
+    while a<1:
+        # h0 = np.random.uniform(65, 75)
+        h0 = 70
+        vu = np.random.uniform(0, 1, k*5+(k+1)*5)
+        v = np.asarray([h0]+list(vu))
+        pingas = forward(v)
+        print(v)
+        print(pingas)
+        a += 1
