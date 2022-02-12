@@ -173,7 +173,7 @@ def forward(v):
     # get terms from input vector
     H0 = v[0]
     print("Input H0:", H0)
-    p = 0
+    p = 1
     # first, loop through observations to see if observed distances make H0 illegal
     if obs_list is not None:
         i = 0
@@ -186,23 +186,14 @@ def forward(v):
             DIC = universe.luminosity_distance(event[0]).value
             # probability density of given cosmology-assigned distance at sampled angle v0
             pdist = pdict[str(event)]
-
             # compute summary statistic
             v0 = v_from_DCDF(pdist, DIC, ve[0])
-            vline = np.linspace(0, 1, 1000)
-            dline = np.linspace(DIC/3, DIC*5, 1000)
-            gi = np.abs(v0 - vline).argmin()
-            pslice = pdist[0][:, gi]
-            pslice /= pslice.sum()
-            mean = np.average(dline, weights=pslice)
-            var = np.average((dline-mean)**2, weights=pslice)
-            # print(DIC, mean, var)
-            p += (DIC-mean)**2/(2*var)
-            # p *= erfc(np.abs(DIC-mean)/np.sqrt(var))
-
             dprob, dpm, dps = p_DV(pdist, v0, DIC)
-            # if dprob/dps < threshold:
-            #     return dict(x=np.array([0.0]))
+            # plot_all(pdist, v0, DIC, event)
+            p *= dprob/dpm
+            print(p)
+            if p < threshold:
+                return dict(x=np.array([0.0]))
     nobs_dl = []
     if nobs_list is not None:
         # is this bit really necessary? I think not.
@@ -218,10 +209,12 @@ def forward(v):
             v0 = v_from_CDF(pdist, ve[0])
 
             DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2][0], event[2][1], v0, ve[1], pdist)
+
+            plot_all(pdist, v0, DL, event)
             # TODO: produce similar list for v in both this and obs_list
             nobs_dl += [[DL, pDL/dpm]]
-            if pDL/dps < threshold:
-                return dict(x=np.array([0.0]))
+            # if pDL/dps < threshold:
+                # return dict(x=np.array([0.0]))
     j = 0
     if obs_list is not None:
         i = 0
@@ -250,7 +243,8 @@ def forward(v):
                 return dict(x=np.array([0.0]))
             # possibly remove pobs for nobs?
             # p *= pobs
-    x = [erfc(np.sqrt(p/(n_obs-1)))]
+    print(p)
+    x = [p]
     return dict(x=np.array(x))
 
 
@@ -276,8 +270,9 @@ if __name__ == "__main__":
     while a<1:
         # h0 = np.random.uniform(65, 75)
         h0 = 70
-        vu = np.random.uniform(0, 1, k*5+(k+1)*5)
+        vu = np.random.uniform(0, 1, k*n_obs+(k+1)*n_nobs)
         v = np.asarray([h0]+list(vu))
+        # v = np.array([70, 0.5, 0.5, 0.5])
         pingas = forward(v)
         print(v)
         print(pingas)

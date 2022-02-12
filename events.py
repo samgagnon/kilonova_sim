@@ -5,7 +5,7 @@ o1 = False
 o5 = True
 
 # are non-observations included?
-n = False
+n = True
 
 # assume a true value for the Hubble constant
 u_true = cosmo.FlatLambdaCDM(70, 0.3)

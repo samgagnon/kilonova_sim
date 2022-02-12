@@ -4,9 +4,9 @@ from events import *
 
 # set simulator parameters
 device = 'cpu'  # TODO: install CUDA toolkit for Win10
-k = 1 # number of free observed event parameters
+k = 3 # number of free observed event parameters
 # theshold for rejecting samples pre-light curve generation
-threshold = 1e-7
+threshold = 1e-3
 
 n_training_samples = int(1000)
 observation_key = "x"
@@ -21,3 +21,8 @@ marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indic
 # marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indices(2)
 
 # H0_index_1d = (0,)
+
+prior_filename = "example3.prior.pt"
+dataset_filename = "examples3.dataset.pt"
+mre_1d_filename = "examples3.mre_1d.pt"
+bound_filename = "example3.bound.pt"

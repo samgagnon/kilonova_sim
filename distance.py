@@ -16,7 +16,6 @@ def delta1(D_0, m1, m2):
     """
     Uncertainty function one
     """
-#     m = 1.4
     M = ((m1*m2)**(3/5)/(m1+m2)**(1/5))**(5/6)
     r_0 = 6.5e3*M
     eps = 0.74
@@ -50,28 +49,71 @@ def dp(D_0, D, v_0, v, m1, m2):
 
 
 def pDV_dist(D0, v0, m1, m2, plot=False):
+    # generate generic range
     vline = np.linspace(0, 1, 1000)
     dline = np.linspace(D0/3, D0*5, 1000)
     vv, dd = np.meshgrid(vline, dline)
     positions = np.vstack([vv.ravel(), dd.ravel()])
     values = np.vstack([vline, dline])
     pmesh = dp(D0, dd, v0, vv, m1, m2)
+    # search for non-informative regions
+    vpdf = np.sum(pmesh, 0)
+    vpdf /= vpdf.sum()
+    dpdf = np.sum(pmesh, 1)
+    dpdf /= dpdf.sum()
+    # get indices
+    v1i = (vpdf>1e-4).argmax()
+    vli = (vpdf[::-1]>1e-4).argmax()
+    d1i = (dpdf>1e-4).argmax()
+    dli = (dpdf[::-1]>1e-4).argmax()
+    # get values
+    v1 = vline[v1i]
+    vl = vline[-vli]
+    d1 = dline[d1i]
+    dl = dline[-dli]
+    if vl == 0:
+        vl = 1
+    if dl == 0:
+        dl = 1
+    # re-create pmesh on more specific domain
+    vline = np.linspace(v1, vl, 1000)
+    dline = np.linspace(d1, dl, 1000)
+    vv, dd = np.meshgrid(vline, dline)
+    positions = np.vstack([vv.ravel(), dd.ravel()])
+    values = np.vstack([vline, dline])
+    pmesh = dp(D0, dd, v0, vv, m1, m2)
     if plot:
+        vloc = np.abs(vline - v0).argmin()
+        dloc = np.abs(dline - D0).argmin()
+        ix = np.arccos(1 - vline[vloc])*180/np.pi
+        Dx = dline[dloc]
+        dsamp = 135.9200303446712
+        # vsamp = 0.10717223730236744
+        vsamp = 0.09948687426164904
+        print(v0, D0)
+        isamp = np.arccos(1 - vsamp)*180/np.pi
+        vsloc = np.abs(vline - vsamp).argmin()
+        dsloc = np.abs(dline - dsamp).argmin()
+        print(dsloc, vsloc)
+        print('Sample height: ', pmesh[dsloc, vsloc])
+        print('True height: ', pmesh[dloc, vloc])
+        iDM, ivM = np.unravel_index(pmesh.argmax(), pmesh.shape)
+        iM = np.arccos(1 - vline[ivM])*180/np.pi
+        print('Max height: ', pmesh.max())
         import matplotlib.pyplot as plt
-        dps = pmesh.sum()
         fig = plt.figure()
         fig.set_figwidth(10)
         fig.set_figheight(10)
-        ax = plt.axes(projection='3d')
-        surf = ax.plot_surface(vv, dd, pmesh/dps, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', zorder=1)
-        # ax.plot_surface(vv, dd, np.ones((1000, 1000))*1e-5, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', zorder=2)
-        # ax.plot(0.3, 400, pm, 'k.', zorder=20)
-        # ax.plot(0.34, 453, pm, 'kx', zorder=20)
-        # ax.plot(0.3003308776117506, 400.5338672005339, pm, 'r.', zorder=20)
-        ax.set_xlabel("$v$", fontsize=20)
-        ax.set_ylabel("$D_L$ [Mpc]", fontsize=20)
-        ax.set_zlabel("$P(v,D_L)$", fontsize=20)
-        ax.view_init(azim=30, elev=30)
+        iline = np.arccos(1 - vline)*180/np.pi
+        i0 = np.arccos(1 - v0)*180/np.pi
+        plt.pcolor(iline, dline, pmesh, shading='auto')
+        plt.plot(i0, D0,'+r')
+        plt.plot(ix, Dx,'+k')
+        plt.plot(iM, dline[iDM],'+m')
+        plt.plot(isamp, dsamp,'+b')
+        plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
+        plt.ylabel("$D_L$ [Mpc]", fontsize=20)
+        plt.colorbar()
         plt.show()
     return pmesh, values, positions, vline, dline
 
@@ -79,7 +121,7 @@ def pDV_dist(D0, v0, m1, m2, plot=False):
 def gen_pDV_dists(event_list, plot=False):
     """
     Given the event list, return a dictionary with all
-    relevant DL-v meshgrids using the event string as keys.
+    relevant DL-v meshgrids using the event strings as keys.
     """
     pdict = {}
     for event in event_list:
@@ -101,12 +143,8 @@ def D_vdu(d_true, v_true, m1, m2, v_guess, du, pdist):
     
     returns: (tuple) luminosity distance, probability of selection
     """
-
-    # TODO: Re-engineer this and p_DV to take dv and calculate v using the same pdist
-
-    # pdist = pDV_dist(d_true, v_true, m1, m2)
     vloc = np.abs(pdist[3] - v_guess).argmin()
-    p_at_v = pdist[0][...,vloc]
+    p_at_v = np.copy(pdist[0][...,vloc])
     cdf = np.cumsum(p_at_v)
     cdf /= cdf.max()
     dloc = np.abs(cdf - du).argmin()
@@ -126,14 +164,6 @@ def p_DV(pdist, v_guess, d_guess):
     """
     vloc = np.abs(pdist[3] - v_guess).argmin()
     dloc = np.abs(pdist[-1] - d_guess).argmin()
-    am = pdist[0].argmax()
-    
-    # import matplotlib.pyplot as plt
-    # plt.plot(pdist[-1], pdist[0][:,vloc])
-    # plt.axvline(d_guess)
-    # plt.show()
-    ovloc = np.abs(pdist[3] - pdist[2][0][am]).argmin()
-    odloc = np.abs(pdist[-1] - pdist[2][1][am]).argmin()
     return pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
 
 
@@ -149,7 +179,7 @@ def v_from_CDF(pdist, dv):
     returns: 
     -v: cosine of observation angle
     """
-    vdist = np.sum(pdist[0], 0)
+    vdist = np.copy(np.sum(pdist[0], 0))
     vdist /= vdist.sum()
     vcdf = np.cumsum(vdist)
     vloc = np.abs(vcdf - dv).argmin()
@@ -169,13 +199,14 @@ def v_from_DCDF(pdist, DL, dv):
     -v: cosine of observation angle
     """
     dloc = np.abs(pdist[-1] - DL).argmin()
-    vdist = pdist[0][dloc]
+    vdist = np.copy(pdist[0][dloc])
     vdist /= vdist.sum()
     vcdf = np.cumsum(vdist)
     vloc = np.abs(vcdf - dv).argmin()
     v = pdist[3][vloc]
     # import matplotlib.pyplot as plt
     # plt.plot(pdist[3], vcdf)
+    # plt.axvline(0.1)
     # plt.axvline(v)
     # plt.show()
     return v
@@ -199,6 +230,23 @@ def m_from_dm(dm_tuple, event):
     i2 = np.abs(dm_tuple[1] - gcdf2).argmin()
     m2 = mx[i2]
     return m1, m2
+
+
+def plot_all(pdist, v, d, event):
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    fig.set_figwidth(10)
+    fig.set_figheight(10)
+    iline = np.arccos(1 - pdist[-2])*180/np.pi
+    i0 = np.arccos(1 - v)*180/np.pi
+    plt.pcolor(iline, pdist[-1], pdist[0], shading='auto')
+    plt.plot(i0, d,'+r')
+    plt.plot(np.arccos(1 - event[4])*180/np.pi, event[1],'+k')
+    plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
+    plt.ylabel("$D_L$ [Mpc]", fontsize=20)
+    plt.colorbar()
+    plt.show()
+
 
 if __name__ == "__main__":
     from config import *

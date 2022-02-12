@@ -26,6 +26,9 @@ low = np.array(low_list)
 high = np.array(high_list)
 prior = swyft.get_uniform_prior(low, high)
 
+# save prior
+prior.save(prior_filename)
+
 observation_o = {'x': np.array([1.0])}
 
 n_observation_features = observation_o[observation_key].shape[0]
@@ -61,6 +64,9 @@ def do_round_1d(bound, observation_focus):
 
     dataset = swyft.Dataset(n_training_samples, prior, store, bound = bound)
 
+    # save dataset
+    dataset.save(dataset_filename)
+
     network_1d = swyft.get_marginal_classifier(
         observation_key=observation_key,
         marginal_indices=marginal_indices_1d,
@@ -76,13 +82,18 @@ def do_round_1d(bound, observation_focus):
     )
     mre_1d.train(dataset)
 
+    mre_1d.save(mre_1d_filename)
+
     posterior_1d = swyft.MarginalPosterior(mre_1d, prior, bound)
     new_bound = posterior_1d.truncate(n_posterior_samples_for_truncation, observation_focus)
+    
+    # save new bound
+    new_bound.save(bound_filename)
 
     return posterior_1d, new_bound
 
 bound = None
-for i in range(1):
+for i in range(2):
     tic = time.time()
     posterior_1d, bound = do_round_1d(bound, observation_o)
     toc = time.time()
@@ -126,18 +137,13 @@ dataset = swyft.Dataset(n_training_samples, prior, store)
 
 # SAVING
 
-prior_filename = "example3.prior.pt"
-dataset_filename = "examples3.dataset.pt"
-mre_1d_filename = "examples3.mre_1d.pt"
-bound_filename = "example3.bound.pt"
-
 prior.save(prior_filename)
 dataset.save(dataset_filename)
 mre_1d.save(mre_1d_filename)
 bound.save(bound_filename)
 
 
-n_rejection_samples = 10000
+n_rejection_samples = 100000
 
 print("producing posterior")
 
@@ -150,7 +156,7 @@ key = marginal_indices_1d[0]
 
 print(samples_1d[key])
 
-# plt.hist(samples_1d[key], 100)
-# plt.show()
+plt.hist(samples_1d[key], 100)
+plt.show()
 
 np.savetxt("H0_samples.txt", samples_1d[key])
