@@ -5,7 +5,10 @@ import astropy.units as u
 from scipy.stats import truncnorm
 from astropy.constants import c
 from astropy.cosmology import z_at_value
-from scipy.special import erfc
+from scipy.special import erfc # note necessary afaik
+
+from gwtoolbox import tools_earth
+from gwtoolbox.sources_kHz import DNS
 
 from events import *
 from config import *
@@ -16,7 +19,6 @@ pdict = gen_pDV_dists(event_list, plot=False)
 
 # instantiate fitter
 my_fitter = mosfit.fitter.Fitter(quiet=False, test=True, offline=False)
-
 
 def light_curve(fitfunc, fixed_params):
     """
@@ -119,7 +121,7 @@ def nobs_forward(H0, ve, DL, pDL, event):
     fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
               "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
               "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-              "q": Q, "cos_theta": 1 - v0, "cos_theta_open": 0.707107,\
+              "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
               "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
               "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
               "temperature_shock": 100, "lumdist": DL, "redshift": ZIC}
@@ -161,7 +163,7 @@ def obs_forward(H0, ve, event):
     fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
               "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
               "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-              "q": Q, "cos_theta": 1 - v0, "cos_theta_open": 0.707107,\
+              "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
               "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
               "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
               "temperature_shock": 100, "lumdist": DIC, "redshift": TZ}
@@ -174,103 +176,182 @@ def forward(v):
     H0 = v[0]
     print("Input H0:", H0)
     p = 1
-    # first, loop through observations to see if observed distances make H0 illegal
+    universe = cosmo.FlatLambdaCDM(H0, 0.3)
+    if malm:
+        obs_det = []
+        nobs_det = []
+        # instantiate GWT cosmology
+        cosmos = tools_earth.set_cosmology(None, 70, 0.3, 2.725)
+        # instantiate binary neutron star object
+        dns = DNS(cosmos)
+        # instantiate GW detector object
+        Tools = tools_earth.Tools(detector_type='ligo', event_type='nsns', population=BNS_par, cosmos=cosmos)
+    # loop through observations to see if observed distances make H0 illegal
     if obs_list is not None:
         i = 0
-        ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
+        # ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
         for event in obs_list:
-            ve = ve_list[i]
+            # ve = ve_list[i]
+            if k < 2:
+                ve = [v[1+n_nobs+i]]
+            else:
+                ve = [v[1+n_nobs+i], np.random.uniform(), np.random.uniform()]
             i += 1
-            universe = cosmo.FlatLambdaCDM(H0, 0.3)
             # "distance in cosmology"
             DIC = universe.luminosity_distance(event[0]).value
             # probability density of given cosmology-assigned distance at sampled angle v0
             pdist = pdict[str(event)]
             # compute summary statistic
             v0 = v_from_DCDF(pdist, DIC, ve[0])
-            dprob, dpm, dps = p_DV(pdist, v0, DIC)
             # plot_all(pdist, v0, DIC, event)
+            if k > 2:
+                M1, M2 = m_from_dm((ve[1], ve[2]), event)
+            else:
+                M1 = event[2][0]
+                M2 = event[2][1]
+            if malm:
+                # determine if the event is detected at all
+                dt = tel_fun(dns, event[0], M1, M2, np.arccos(v0), rho_cri, Tools.detector.ante_pattern, Tools.noise)
+                if np.random.uniform() > dt:
+                    obs_det += [False]
+                    continue
+                else:
+                    obs_det += [True]
+            dprob, dpm, dps = p_DV(pdist, v0, DIC)
             p *= dprob/dpm
-            print(p)
             if p < threshold:
-                return dict(x=np.array([0.0]))
-    nobs_dl = []
+                return dict(x=np.array(bad_result))
+    if malm:
+        if True not in obs_det:
+            print('No GW obs detected!')
+            return dict(x=np.array(bad_result))
     if nobs_list is not None:
-        # is this bit really necessary? I think not.
         i = 0
-        ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
+        # ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
-            ve = ve_list[i]
+            # ve = ve_list[i]
+            if k < 2:
+                ve = [v[1+i], np.random.uniform()]
+            else:
+                ve = [v[1+i], np.random.uniform(), np.random.uniform(), np.random.uniform()]
             i += 1
+    
+            pdist = pdict[str(event)]
+
+            v0 = v_from_CDF(pdist, ve[0])
+            if k>2:
+                M1, M2 = m_from_dm((ve[2], ve[3]), event)
+            else:
+                M1 = event[2][0]
+                M2 = event[2][1]
+
             # generate a possible distance from the random variables du, v0
             # and the prior distribution (depending on true event parameters)
-            pdist = pdict[str(event)]
-            # v0 = v_from_CDF(event[1], event[4], event[2][0], event[2][1], ve[0])
-            v0 = v_from_CDF(pdist, ve[0])
-
-            DL, pDL, dpm, dps = D_vdu(event[1], event[4], event[2][0], event[2][1], v0, ve[1], pdist)
-
-            plot_all(pdist, v0, DL, event)
-            # TODO: produce similar list for v in both this and obs_list
-            nobs_dl += [[DL, pDL/dpm]]
-            # if pDL/dps < threshold:
-                # return dict(x=np.array([0.0]))
-    j = 0
+            DL, pDL, dpm, dps = D_vdu(v0, ve[1], pdist)
+            if malm:
+                # "z in cosmology"
+                ZIC = z_at_value(universe.luminosity_distance, DL*u.Mpc)
+                # probability of GW detection
+                dt = tel_fun(dns, ZIC, M1, M2, np.arccos(v0), rho_cri, Tools.detector.ante_pattern, Tools.noise)
+                if np.random.uniform() > dt:
+                    nobs_det += [False]
+                    continue
+                else:
+                    nobs_det += [True]
+            p *= pDL/dpm
+            if p < threshold:
+                return dict(x=np.array(bad_result))
+            # plot_all(pdist, v0, DL, event, cmap='coolwarm')
+    # now generate light curves to determine if the parameters can reproduce observations
     if obs_list is not None:
         i = 0
-        ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
+        # ve_list = list(chunks(v[n_nobs*(k+1)+1:], k))
         for event in obs_list:
-            ve = ve_list[i]
+            if malm:
+                if obs_det[i] == False:
+                    i += 1
+                    continue
+            # ve = ve_list[i]
+            if k < 2:
+                ve = [v[1+n_nobs+i]]
+            else:
+                ve = [v[1+n_nobs+i], np.random.uniform(), np.random.uniform()]
             i += 1
             det, pobs = obs_forward(H0, ve, event)
             if det is False:
                 print(det, 'bad')
-                return dict(x=np.array([0.0]))
-            # pdist = pdict[str(event)]
-            # dprob, dpm, dps = p_DV(pdist, v0, DIC)
-            # p += [pobs]
+                return dict(x=np.array(bad_result))
     if nobs_list is not None:
         i = 0
-        ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
+        # ve_list = list(chunks(v[1:n_nobs*(k+1)+1], k+1))
         for event in nobs_list:
-            ve = ve_list[i]
+            if malm:
+                if nobs_det[i] == False:
+                    i += 1
+                    continue
+            # ve = ve_list[i]
+            if k < 2:
+                ve = [v[1+i], np.random.uniform()]
+            else:
+                ve = [v[1+i], np.random.uniform(), np.random.uniform(), np.random.uniform()]
             i += 1
-            DL, pDL = nobs_dl[j]
-            j += 1
+            # generate a possible distance from the random variables du, v0
+            # and the prior distribution (depending on true event parameters)
+            pdist = pdict[str(event)]
+            v0 = v_from_CDF(pdist, ve[0])
+            DL, pDL, dpm, dps = D_vdu(v0, ve[1], pdist)
             det, pobs = nobs_forward(H0, ve, DL, pDL, event)
             if det is True:
                 print(det, 'bad')
-                return dict(x=np.array([0.0]))
-            # possibly remove pobs for nobs?
-            # p *= pobs
+                return dict(x=np.array(bad_result))
     print(p)
-    x = [p]
+    if np.isnan(p):
+        return dict(x=np.array(bad_result))
+    if malm:
+        ndet = sum(obs_det) + sum(nobs_det)
+        f = n_events - ndet + 1
+        if f*np.log10(p) < bad_result:
+            x = bad_result
+        else:
+            x = [f*np.log10(p)]
+        return dict(x=np.array(x))
+    if np.log10(p) < bad_result:
+        x = bad_result
+    else:
+        x = [np.log10(p)]
     return dict(x=np.array(x))
+    
 
 
 if __name__ == "__main__":
     # event = event_list[0]
-    # M1 = event[2][0]
-    # M2 = event[2][1]
-    # Q = M1/M2
+    # v0 = np.cos(0.722814)
+    # M1 = event[3][1]
+    # M2 = event[3][0]
+    # if M1<M2:
+    #     Q = M1/M2
+    # else:
+    #     Q = M2/M1
     # Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
     # print(Q, Mchirp)
     # print(event[0], event[1])
     # fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
     #           "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
     #           "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-    #           "q": Q, "cos_theta": 0.89, "cos_theta_open": 0.707107,\
+    #           "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
     #           "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
     #           "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
-    #           "temperature_shock": 100, "lumdist": 141, "redshift": event[0]}
+    #           "temperature_shock": 100, "lumdist": event[1], "redshift": event[0]}
     # p = light_curve(my_fitter, fixed_params)
     # print(p)
     a = 0
     outlist = []
+    import sys
     while a<1:
         # h0 = np.random.uniform(65, 75)
-        h0 = 70
-        vu = np.random.uniform(0, 1, k*n_obs+(k+1)*n_nobs)
+        h0 = int(sys.argv[1])
+        # vu = np.random.uniform(0, 1, n_events)
+        vu = np.ones(n_events)*0.5
         v = np.asarray([h0]+list(vu))
         # v = np.array([70, 0.5, 0.5, 0.5])
         pingas = forward(v)

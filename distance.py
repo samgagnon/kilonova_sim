@@ -1,4 +1,52 @@
 import numpy as np
+from gwtoolbox.functions_earth import rho_sq_core
+
+random_angles_more=np.loadtxt("angles_more.dat")
+
+def tel_fun(dns, z, m1, m2, iota, rho_cri, ant_fun, noise_tab):
+    """
+    The telescope function of Laser Interferometers and kHz sources.
+
+    Parameters:
+      z (float): The redshift of the GW source
+      m1 (float): Red-shifted masses of the BHB
+      m2 (float): Red-shifted masses of the BHB
+      #chi (float): spin
+      iota (float): inclination angle in radians
+      rho_cri (float): The detection SNR threshold
+      ant_fun (function): antenna pattern
+      noise_tab (array of dtype float): noise function for detector
+
+    Returns:
+      (float): The probability of detection
+    """
+    # both masses should be intrinsic here.
+    Mch = (m1*m2)**(5/6)/(m1+m2)**(1/5)
+    
+    theta_array_more = random_angles_more[:,0]
+    varphi_array_more = random_angles_more[:,1]
+    iota_array_more = np.ones(len(random_angles_more[:,1]))*iota
+    psi_array_more = random_angles_more[:,3]
+    F = ant_fun(theta_array_more, varphi_array_more, psi_array_more)
+    A_array = dns.mod_norm(Mch*(1+z), F, iota_array_more, z)
+    
+    f_up = dns.freq_limit(m1=m1*(1+z), m2=m2*(1+z), chi=0)
+    f2=dns.freq_limit_merger(m1=m1*(1+z), m2=m2*(1+z), chi=0)
+    f3=dns.freq_limit_ringdown(m1=m1*(1+z), m2=m2*(1+z), chi=0)
+    freq_sig=dns.freq_sigma(m1=m1*(1+z), m2=m2*(1+z), chi=0)
+    f1=f_up
+    rho_sq_core_value = rho_sq_core(noise_tab, dns.mod_shape, f_up=f_up)
+    
+    if len(A_array.shape)==2:
+        rho_sq_array=4.*np.einsum('i...,i->i...',A_array**2,rho_sq_core_value)
+        heav_array = np.heaviside(rho_sq_array-rho_cri**2,0)
+
+        return np.mean(heav_array,axis=1)
+    else: 
+        rho_sq_array = np.array(4.*A_array**2*rho_sq_core_value)
+        heav_array = np.heaviside(rho_sq_array-rho_cri**2,0)
+        return np.mean(heav_array)
+
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
@@ -66,15 +114,15 @@ def pDV_dist(D0, v0, m1, m2, plot=False):
     vli = (vpdf[::-1]>1e-4).argmax()
     d1i = (dpdf>1e-4).argmax()
     dli = (dpdf[::-1]>1e-4).argmax()
+    if vli == 0:
+        vli = 1
+    if dli == 0:
+        dli = 1
     # get values
     v1 = vline[v1i]
     vl = vline[-vli]
     d1 = dline[d1i]
     dl = dline[-dli]
-    if vl == 0:
-        vl = 1
-    if dl == 0:
-        dl = 1
     # re-create pmesh on more specific domain
     vline = np.linspace(v1, vl, 1000)
     dline = np.linspace(d1, dl, 1000)
@@ -82,39 +130,6 @@ def pDV_dist(D0, v0, m1, m2, plot=False):
     positions = np.vstack([vv.ravel(), dd.ravel()])
     values = np.vstack([vline, dline])
     pmesh = dp(D0, dd, v0, vv, m1, m2)
-    if plot:
-        vloc = np.abs(vline - v0).argmin()
-        dloc = np.abs(dline - D0).argmin()
-        ix = np.arccos(1 - vline[vloc])*180/np.pi
-        Dx = dline[dloc]
-        dsamp = 135.9200303446712
-        # vsamp = 0.10717223730236744
-        vsamp = 0.09948687426164904
-        print(v0, D0)
-        isamp = np.arccos(1 - vsamp)*180/np.pi
-        vsloc = np.abs(vline - vsamp).argmin()
-        dsloc = np.abs(dline - dsamp).argmin()
-        print(dsloc, vsloc)
-        print('Sample height: ', pmesh[dsloc, vsloc])
-        print('True height: ', pmesh[dloc, vloc])
-        iDM, ivM = np.unravel_index(pmesh.argmax(), pmesh.shape)
-        iM = np.arccos(1 - vline[ivM])*180/np.pi
-        print('Max height: ', pmesh.max())
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        fig.set_figwidth(10)
-        fig.set_figheight(10)
-        iline = np.arccos(1 - vline)*180/np.pi
-        i0 = np.arccos(1 - v0)*180/np.pi
-        plt.pcolor(iline, dline, pmesh, shading='auto')
-        plt.plot(i0, D0,'+r')
-        plt.plot(ix, Dx,'+k')
-        plt.plot(iM, dline[iDM],'+m')
-        plt.plot(isamp, dsamp,'+b')
-        plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
-        plt.ylabel("$D_L$ [Mpc]", fontsize=20)
-        plt.colorbar()
-        plt.show()
     return pmesh, values, positions, vline, dline
 
 
@@ -132,7 +147,7 @@ def gen_pDV_dists(event_list, plot=False):
     return pdict
 
 
-def D_vdu(d_true, v_true, m1, m2, v_guess, du, pdist):
+def D_vdu(v_guess, du, pdist):
     """
     -d_true: true event luminosity distance
     -v_true: true event angle variable
@@ -162,9 +177,12 @@ def p_DV(pdist, v_guess, d_guess):
     
     returns: probability of guess given prior
     """
-    vloc = np.abs(pdist[3] - v_guess).argmin()
-    dloc = np.abs(pdist[-1] - d_guess).argmin()
-    return pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
+    if (d_guess < pdist[-1].max()) and (d_guess > pdist[-1].min()):
+        vloc = np.abs(pdist[3] - v_guess).argmin()
+        dloc = np.abs(pdist[-1] - d_guess).argmin()
+        return pdist[0][dloc, vloc], pdist[0].max(), pdist[0].sum()
+    else:
+        return 0, 1, 1
 
 
 def v_from_CDF(pdist, dv):
@@ -232,16 +250,17 @@ def m_from_dm(dm_tuple, event):
     return m1, m2
 
 
-def plot_all(pdist, v, d, event):
+def plot_all(pdist, v, d, event, cmap='viridis'):
     import matplotlib.pyplot as plt
     fig = plt.figure()
     fig.set_figwidth(10)
     fig.set_figheight(10)
-    iline = np.arccos(1 - pdist[-2])*180/np.pi
-    i0 = np.arccos(1 - v)*180/np.pi
-    plt.pcolor(iline, pdist[-1], pdist[0], shading='auto')
+    iline = np.arccos(pdist[-2])*180/np.pi
+    i0 = np.arccos(v)*180/np.pi
+    # print(v, i0)
+    plt.pcolor(iline, pdist[-1], pdist[0], shading='auto', cmap=cmap)
     plt.plot(i0, d,'+r')
-    plt.plot(np.arccos(1 - event[4])*180/np.pi, event[1],'+k')
+    plt.plot(np.arccos(event[4])*180/np.pi, event[1],'+k')
     plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
     plt.ylabel("$D_L$ [Mpc]", fontsize=20)
     plt.colorbar()
@@ -250,30 +269,20 @@ def plot_all(pdist, v, d, event):
 
 if __name__ == "__main__":
     from config import *
-    # xr = np.linspace(0.7, 0.95, int(1e2))
-    # vr = [v_from_CDF(DT1, 0.9, 1.4, 1.4, i) for i in xr]
-    # p = [p_DV(DT1, 0.9, m1[0], m1[1], v, DT1) for v in vr]
-    # e = np.array(p).argmax()
-    # print(xr[e])
-    # print(vr[e])
-    gen_pDV_dists(event_list, plot=True)
-    # import matplotlib.pyplot as plt
-    # from astropy import units as u
-    # from astropy import constants as c
-    # universe = cosmo.FlatLambdaCDM(70, 0.3)
-    # D0 = 40
-    # z = cosmo.z_at_value(universe.luminosity_distance, D0*u.Mpc)
-    # v0 = np.cos(np.linspace(0, np.pi/2, 5))
-    # # thetaline = np.linspace(0, np.pi, 1000)
-    # # vline = np.cos(thetaline)
-    # vline = np.linspace(-1, 1, 1000)
-    # dline = np.linspace(D0/3, D0*5, 1000)
-    # vv, dd = np.meshgrid(vline, dline)
-    # positions = np.vstack([vv.ravel(), dd.ravel()])
-    # values = np.vstack([vline, dline])
-    # for v in v0:
-    #     pmesh = dp(D0, dd, v, vv, 1.4, 1.4)
-    #     plt.plot(z*c.c.value/(dline*1e3), np.sum(pmesh, 1), label=str(np.arccos(v)*180/np.pi)+'$^\circ$')
-    # plt.axvline(70, color='r')
-    # plt.legend()
-    # plt.show()
+    ZT10 = 0.09
+    DT10 = 400
+    EL = [[ZT10, DT10, m10, dm10, 0.0, o10],\
+        [ZT10, DT10, m10, dm10, 0.1, o10],\
+        [ZT10, DT10, m10, dm10, 0.2, o10],\
+        [ZT10, DT10, m10, dm10, 0.3, o10],\
+        [ZT10, DT10, m10, dm10, 0.4, o10],\
+        [ZT10, DT10, m10, dm10, 0.5, o10],\
+        [ZT10, DT10, m10, dm10, 0.6, o10],\
+        [ZT10, DT10, m10, dm10, 0.7, o10],\
+        [ZT10, DT10, m10, dm10, 0.8, o10],\
+        [ZT10, DT10, m10, dm10, 0.9, o10],\
+        [ZT10, DT10, m10, dm10, 1.0, o10]]
+    pdict = gen_pDV_dists(EL, plot=False)
+    for event in EL:
+        pdist = pdict[str(event)]
+        plot_all(pdist, event[4], event[1], event)

@@ -12,14 +12,18 @@ from forward import *
 # define prior chunks
 global_low_list = [50.0]
 global_high_list = [100.0]
-nobs_low_list = [0.0]*((k+1)*n_nobs)
-obs_low_list = [0.0]*(k*n_obs)
-nobs_high_list = [1.0]*((k+1)*n_nobs)
-obs_high_list = [1.0]*(k*n_obs)
+# nobs_low_list = [0.0]*((k+1)*n_nobs)
+# obs_low_list = [0.0]*(k*n_obs)
+# nobs_high_list = [1.0]*((k+1)*n_nobs)
+# obs_high_list = [1.0]*(k*n_obs)
+low_list = [0.0]*n_events
+high_list = [1.0]*n_events
 
 # append prior chunks
-low_list = global_low_list + nobs_low_list + obs_low_list
-high_list = global_high_list + nobs_high_list + obs_high_list
+# low_list = global_low_list + nobs_low_list + obs_low_list
+# high_list = global_high_list + nobs_high_list + obs_high_list
+low_list = global_low_list + low_list
+high_list = global_high_list + high_list
 
 # instantiate prior
 low = np.array(low_list)
@@ -29,7 +33,7 @@ prior = swyft.get_uniform_prior(low, high)
 # save prior
 prior.save(prior_filename)
 
-observation_o = {'x': np.array([1.0])}
+observation_o = {'x': np.array(good_reference)}
 
 n_observation_features = observation_o[observation_key].shape[0]
 observation_shapes = {key: value.shape for key, value in observation_o.items()}
@@ -93,7 +97,7 @@ def do_round_1d(bound, observation_focus):
     return posterior_1d, new_bound
 
 bound = None
-for i in range(2):
+for i in range(1):
     tic = time.time()
     posterior_1d, bound = do_round_1d(bound, observation_o)
     toc = time.time()
@@ -143,7 +147,7 @@ mre_1d.save(mre_1d_filename)
 bound.save(bound_filename)
 
 
-n_rejection_samples = 100000
+n_rejection_samples = 10000
 
 print("producing posterior")
 

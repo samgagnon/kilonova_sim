@@ -2,22 +2,26 @@ import matplotlib.pyplot as plt
 
 from forward import *
 
-prior_filename = "example3.prior.pt"
-dataset_filename = "examples3.dataset.pt"
-mre_1d_filename = "examples3.mre_1d.pt"
-bound_filename = "example3.bound.pt"
+# prior_filename = "example3.prior.pt"
+dataset_filename = "d1.dat"
+# mre_1d_filename = "examples3.mre_1d.pt"
+# bound_filename = "example3.bound.pt"
 
 # define prior chunks
-global_low_list = [50.0]
-global_high_list = [100.0]
-nobs_low_list = [0.0]*((k+1)*n_nobs)
-obs_low_list = [0.0]*(k*n_obs)
-nobs_high_list = [1.0]*((k+1)*n_nobs)
-obs_high_list = [1.0]*(k*n_obs)
+global_low_list = [65.0]
+global_high_list = [75.0]
+# nobs_low_list = [0.0]*((k+1)*n_nobs)
+# obs_low_list = [0.0]*(k*n_obs)
+# nobs_high_list = [1.0]*((k+1)*n_nobs)
+# obs_high_list = [1.0]*(k*n_obs)
+low_list = [0.0]*n_events
+high_list = [1.0]*n_events
 
 # append prior chunks
-low_list = global_low_list + nobs_low_list + obs_low_list
-high_list = global_high_list + nobs_high_list + obs_high_list
+# low_list = global_low_list + nobs_low_list + obs_low_list
+# high_list = global_high_list + nobs_high_list + obs_high_list
+low_list = global_low_list + low_list
+high_list = global_high_list + high_list
 
 # instantiate prior
 low = np.array(low_list)
@@ -49,7 +53,7 @@ bound_loaded=None
 
 print("loading prior")
 
-prior_loaded = swyft.Prior.load(prior_filename)
+# prior_loaded = swyft.Prior.load(prior_filename)
 dataset_loaded = swyft.Dataset.load(
     filename=dataset_filename,
     store=store
@@ -71,19 +75,27 @@ network_new = swyft.get_marginal_classifier(
 
 print("loading network")
 
-mre_1d_loaded = swyft.MarginalRatioEstimator.load(
+# mre_1d_loaded = swyft.MarginalRatioEstimator.load(
+#     network=network_new,
+#     device=device,
+#     filename=mre_1d_filename,
+# )
+
+mre_1d_loaded = swyft.MarginalRatioEstimator(
+    marginal_indices=marginal_indices_1d,
     network=network_new,
     device=device,
-    filename=mre_1d_filename,
 )
+
+mre_1d_loaded.train(dataset_loaded)
 
 # create a simple violin plot
 
-n_rejection_samples = 10000
+n_rejection_samples = 10
 
 print("producing posterior")
 
-posterior_1d = swyft.MarginalPosterior(mre_1d_loaded, prior_loaded, bound=bound_loaded)
+posterior_1d = swyft.MarginalPosterior(mre_1d_loaded, prior, bound=bound_loaded)
 
 print("sampling")
 
@@ -92,7 +104,7 @@ key = marginal_indices_1d[0]
 
 print(samples_1d[key])
 
-# plt.hist(samples_1d[key])
-# plt.show()
+plt.hist(samples_1d[key])
+plt.show()
 
 np.savetxt("H0_samples.txt", samples_1d[key])

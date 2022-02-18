@@ -70,59 +70,99 @@ o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = True, True, False, True, True, \
 
 # split the event list into two lists, one for obs (true) and one for nobs (false)
 
+# 4 observations, 7 non-observations, all at the same exact luminosity distance
 if o5:
     if n:
-        obs_list = [[ZT10, DT10, m10, dm10, v10, o10],\
-            [ZT2, DT2, m2, dm2, v2, o2],\
-            [ZT3, DT3, m3, dm3, v3, o3],\
-            [ZT5, DT5, m5, dm5, v5, o5],\
-            [ZT6, DT6, m6, dm6, v6, o6],\
-            [ZT11, DT11, m11, dm11, v11, o11]]
+        obs_list = [[ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]#,\
+            # [ZT1, DT1, m1, dm1, 1.0, True]]
 
-        nobs_list = [[ZT4, DT4, m4, dm4, v4, o4],\
-            [ZT7, DT7, m7, dm7, v7, o7],\
-            [ZT8, DT8, m8, dm8, v8, o8],\
-            [ZT9, DT9, m9, dm9, v9, o9]]
+        nobs_list = [[ZT1, DT1, m1, dm1, 0.0, False],\
+            [ZT1, DT1, m1, dm1, 0.1, False],\
+            [ZT1, DT1, m1, dm1, 0.2, False],\
+            [ZT1, DT1, m1, dm1, 0.3, False],\
+            [ZT1, DT1, m1, dm1, 0.4, False],\
+            [ZT1, DT1, m1, dm1, 0.5, False],\
+            [ZT1, DT1, m1, dm1, 0.6, False]]
 
-        event_list = [[ZT4, DT4, m4, dm4, v4, o4],\
-            [ZT7, DT7, m7, dm7, v7, o7],\
-            [ZT8, DT8, m8, dm8, v8, o8],\
-            [ZT9, DT9, m9, dm9, v9, o9],\
-            [ZT10, DT10, m10, dm10, v10, o10],\
-            [ZT2, DT2, m2, dm2, v2, o2],\
-            [ZT3, DT3, m3, dm3, v3, o3],\
-            [ZT5, DT5, m5, dm5, v5, o5],\
-            [ZT6, DT6, m6, dm6, v6, o6],\
-            [ZT11, DT11, m11, dm11, v11, o11]]
+        event_list = [[ZT1, DT1, m1, dm1, 0.0, False],\
+            [ZT1, DT1, m1, dm1, 0.1, False],\
+            [ZT1, DT1, m1, dm1, 0.2, False],\
+            [ZT1, DT1, m1, dm1, 0.3, False],\
+            [ZT1, DT1, m1, dm1, 0.4, False],\
+            [ZT1, DT1, m1, dm1, 0.5, False],\
+            [ZT1, DT1, m1, dm1, 0.6, False],\
+            [ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]#,\
+            # [ZT1, DT1, m1, dm1, 1.0, True]]
     else:
-        obs_list = [[ZT10, DT10, m10, dm10, v10, o10],\
-            [ZT2, DT2, m2, dm2, v2, o2],\
-            [ZT3, DT3, m3, dm3, v3, o3],\
-            [ZT5, DT5, m5, dm5, v5, o5],\
-            [ZT6, DT6, m6, dm6, v6, o6],\
-            [ZT11, DT11, m11, dm11, v11, o11]]
+        obs_list = [[ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]#,\
+            # [ZT1, DT1, m1, dm1, 1.0, True]]
 
         nobs_list =  None
 
-        event_list = [[ZT10, DT10, m10, dm10, v10, o10],\
-            [ZT2, DT2, m2, dm2, v2, o2],\
-            [ZT3, DT3, m3, dm3, v3, o3],\
-            [ZT5, DT5, m5, dm5, v5, o5],\
-            [ZT6, DT6, m6, dm6, v6, o6],\
-            [ZT11, DT11, m11, dm11, v11, o11]]
+        event_list = [[ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]#,\
+            # [ZT1, DT1, m1, dm1, 1.0, True]]
+
+
+# if o5:
+#     if n:
+#         obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+#             [ZT3, DT3, m3, dm3, v3, o3],\
+#             [ZT5, DT5, m5, dm5, v5, o5],\
+#             [ZT6, DT6, m6, dm6, v6, o6],\
+#             [ZT11, DT11, m11, dm11, v11, o11]]
+
+#         nobs_list = [[ZT10, DT10, m10, dm10, v10, o10],\
+#             [ZT4, DT4, m4, dm4, v4, o4],\
+#             [ZT7, DT7, m7, dm7, v7, o7],\
+#             [ZT8, DT8, m8, dm8, v8, o8],\
+#             [ZT9, DT9, m9, dm9, v9, o9]]
+
+#         event_list = [[ZT4, DT4, m4, dm4, v4, o4],\
+#             [ZT7, DT7, m7, dm7, v7, o7],\
+#             [ZT8, DT8, m8, dm8, v8, o8],\
+#             [ZT9, DT9, m9, dm9, v9, o9],\
+#             [ZT10, DT10, m10, dm10, v10, o10],\
+#             [ZT2, DT2, m2, dm2, v2, o2],\
+#             [ZT3, DT3, m3, dm3, v3, o3],\
+#             [ZT5, DT5, m5, dm5, v5, o5],\
+#             [ZT6, DT6, m6, dm6, v6, o6],\
+#             [ZT11, DT11, m11, dm11, v11, o11]]
+#     else:
+#         obs_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+#             [ZT3, DT3, m3, dm3, v3, o3],\
+#             [ZT5, DT5, m5, dm5, v5, o5],\
+#             [ZT6, DT6, m6, dm6, v6, o6],\
+#             [ZT11, DT11, m11, dm11, v11, o11]]
+
+#         nobs_list =  None
+
+#         event_list = [[ZT2, DT2, m2, dm2, v2, o2],\
+#             [ZT3, DT3, m3, dm3, v3, o3],\
+#             [ZT5, DT5, m5, dm5, v5, o5],\
+#             [ZT6, DT6, m6, dm6, v6, o6],\
+#             [ZT11, DT11, m11, dm11, v11, o11]]
 
 
 if o1:
     if n:
-        obs_list = [[ZT1, DT1, m1, dm1, 0.1, True]]
-        nobs_list = [[ZT1, DT1, m1, dm1, 0.9, False]]
+        obs_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
+        # nobs_list = [[ZT1, DT1, m1, dm1, 0.1, False]]
+        nobs_list = [[0.5, u_true.luminosity_distance(0.5).value, m1, dm1, 0.5, False]]
 
-        event_list = [[ZT1, DT1, m1, dm1, 0.9, False],\
-            [ZT1, DT1, m1, dm1, 0.1, True]]
+        event_list = [[0.5, u_true.luminosity_distance(0.5).value, m1, dm1, 0.5, False],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]
     else:
-        obs_list = [[ZT1, DT1, m1, dm1, 0.1, True]]
+        obs_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
         nobs_list = None
-        event_list = [[ZT1, DT1, m1, dm1, 0.1, True]]
+        event_list = [[ZT1, DT1, m1, dm1, 0.9, True]]
 
 
 n_events = len(event_list)
