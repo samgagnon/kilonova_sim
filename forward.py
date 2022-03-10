@@ -98,7 +98,10 @@ def light_curve(fitfunc, fixed_params):
 def nobs_forward(H0, ve, DL, pDL, event):
     # get free event parameters
     pdist = pdict[str(event)]
-    v0 = v_from_CDF(pdist, ve[0])
+    if monly:
+        v0 = 1.0
+    else:
+        v0 = v_from_CDF(pdist, ve[0])
     if k>2:
         M1, M2 = m_from_dm((ve[2], ve[3]), event)
     else:
@@ -153,7 +156,10 @@ def obs_forward(H0, ve, event):
     universe = cosmo.FlatLambdaCDM(H0, 0.3)
     # "distance in cosmology"
     DIC = universe.luminosity_distance(TZ).value
-    v0 = v_from_DCDF(pdist, DIC, ve[0])
+    if monly:
+        v0 = 1.0
+    else:
+        v0 = v_from_DCDF(pdist, DIC, ve[0])
     # probability density of given cosmology-assigned distance at sampled angle v0
     # dprob, dpm, dps = p_DV(event[1], event[4], event[2][0], event[2][1], v0, DIC)
     # dprob, dpm, dps = p_DV(pdist, v0, DIC)
@@ -173,9 +179,12 @@ def obs_forward(H0, ve, event):
 
 def forward(v):
     # get terms from input vector
-    H0 = v[0]
+    H0 = np.copy(v)[0]
+    v = np.zeros(n_events + 1)
+    v[0] = H0
+    v[1:] = np.random.uniform(0, 1, n_events)
     print("Input H0:", H0)
-    p = 1
+    p = 0
     universe = cosmo.FlatLambdaCDM(H0, 0.3)
     if malm:
         obs_det = []
@@ -218,7 +227,9 @@ def forward(v):
                 else:
                     obs_det += [True]
             dprob, dpm, dps = p_DV(pdist, v0, DIC)
-            p *= dprob/dpm
+            print(dprob/dpm)
+            print(dprob/dps)
+            p += np.log10(dprob/dps)
             if p < threshold:
                 return dict(x=np.array(bad_result))
     if malm:
@@ -258,10 +269,12 @@ def forward(v):
                     continue
                 else:
                     nobs_det += [True]
-            p *= pDL/dpm
+            # plot_all(pdist, v0, DL, event, cmap='coolwarm')
+            p += np.log10(pDL/dps)
+            print(pDL/dpm)
+            print(pDL/dps)
             if p < threshold:
                 return dict(x=np.array(bad_result))
-            # plot_all(pdist, v0, DL, event, cmap='coolwarm')
     # now generate light curves to determine if the parameters can reproduce observations
     if obs_list is not None:
         i = 0
@@ -310,51 +323,63 @@ def forward(v):
     if malm:
         ndet = sum(obs_det) + sum(nobs_det)
         f = n_events - ndet + 1
-        if f*np.log10(p) < bad_result:
+        if f*p < bad_result:
             x = bad_result
         else:
-            x = [f*np.log10(p)]
+            x = [f*p]
         return dict(x=np.array(x))
-    if np.log10(p) < bad_result:
+    if p < bad_result:
         x = bad_result
     else:
-        x = [np.log10(p)]
+        x = [p]
     return dict(x=np.array(x))
     
 
 
 if __name__ == "__main__":
+    import time
     # event = event_list[0]
-    # v0 = np.cos(0.722814)
     # M1 = event[3][1]
     # M2 = event[3][0]
-    # if M1<M2:
-    #     Q = M1/M2
-    # else:
-    #     Q = M2/M1
-    # Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
-    # print(Q, Mchirp)
-    # print(event[0], event[1])
-    # fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
-    #           "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
-    #           "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-    #           "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
-    #           "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
-    #           "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
-    #           "temperature_shock": 100, "lumdist": event[1], "redshift": event[0]}
-    # p = light_curve(my_fitter, fixed_params)
-    # print(p)
-    a = 0
-    outlist = []
-    import sys
-    while a<1:
-        # h0 = np.random.uniform(65, 75)
-        h0 = int(sys.argv[1])
-        # vu = np.random.uniform(0, 1, n_events)
-        vu = np.ones(n_events)*0.5
-        v = np.asarray([h0]+list(vu))
-        # v = np.array([70, 0.5, 0.5, 0.5])
-        pingas = forward(v)
-        print(v)
-        print(pingas)
-        a += 1
+    
+    det_list = []
+    tic = time.time()
+    for i in range(len(event_list)):
+        event = event_list[i]
+        # v0 = ev100[i]
+        # M1 = em1100[i]
+        # M2 = em2100[i]
+        # v0 = 1.0
+        M1, M2 = event[2][0], event[2][1]
+        if M1<M2:
+            Q = M1/M2
+        else:
+            Q = M2/M1
+        Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
+        # print(Q, Mchirp)
+        # print(event[0], event[1])
+        fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
+                "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
+                "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
+                "q": Q, "cos_theta": event[4], "cos_theta_open": 0.707107,\
+                "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
+                "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
+                "temperature_shock": 100, "lumdist": event[1], "redshift": event[0]}
+        p = light_curve(my_fitter, fixed_params)
+        print(p[0])
+        det_list += [p[0]]
+    print(time.time() - tic)
+    print(det_list)
+    # a = 0
+    # outlist = []
+    # import sys
+    # while a<1:
+    #     # h0 = np.random.uniform(65, 75)
+    #     h0 = np.array([int(sys.argv[1])])
+    #     # vu = np.random.uniform(0, 1, n_events)
+    #     # vu = np.ones(n_events)*0.5
+    #     # v = np.asarray([h0]+list(vu))
+    #     # v = np.array([70, 0.5, 0.5, 0.5])
+    #     pingas = forward(h0)
+    #     print(pingas)
+    #     a += 1

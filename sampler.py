@@ -13,13 +13,13 @@ affix = str(sys.argv[1])
 
 # define prior chunks
 global_low_list = [65.0]
-global_high_list = [95.0]
-low_list = [0.0]*n_events
-high_list = [1.0]*n_events
+global_high_list = [90.0]
+# low_list = [0.0]*n_events
+# high_list = [1.0]*n_events
 
 # append prior chunks
-low_list = global_low_list + low_list
-high_list = global_high_list + high_list
+low_list = global_low_list# + low_list
+high_list = global_high_list# + high_list
 
 # instantiate prior
 low = np.array(low_list)

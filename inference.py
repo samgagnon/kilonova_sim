@@ -16,14 +16,14 @@ global_high_list = [100.0]
 # obs_low_list = [0.0]*(k*n_obs)
 # nobs_high_list = [1.0]*((k+1)*n_nobs)
 # obs_high_list = [1.0]*(k*n_obs)
-low_list = [0.0]*n_events
-high_list = [1.0]*n_events
+# low_list = [0.0]*n_events
+# high_list = [1.0]*n_events
 
 # append prior chunks
 # low_list = global_low_list + nobs_low_list + obs_low_list
 # high_list = global_high_list + nobs_high_list + obs_high_list
-low_list = global_low_list + low_list
-high_list = global_high_list + high_list
+low_list = global_low_list# + low_list
+high_list = global_high_list# + high_list
 
 # instantiate prior
 low = np.array(low_list)
@@ -97,7 +97,7 @@ def do_round_1d(bound, observation_focus):
     return posterior_1d, new_bound
 
 bound = None
-for i in range(1):
+for i in range(2):
     tic = time.time()
     posterior_1d, bound = do_round_1d(bound, observation_o)
     toc = time.time()

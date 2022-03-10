@@ -258,7 +258,7 @@ def plot_all(pdist, v, d, event, cmap='viridis'):
     iline = np.arccos(pdist[-2])*180/np.pi
     i0 = np.arccos(v)*180/np.pi
     # print(v, i0)
-    plt.pcolor(iline, pdist[-1], pdist[0], shading='auto', cmap=cmap)
+    plt.pcolor(iline, pdist[-1], pdist[0]/np.sum(pdist[0]), shading='auto', cmap=cmap)
     plt.plot(i0, d,'+r')
     plt.plot(np.arccos(event[4])*180/np.pi, event[1],'+k')
     plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
@@ -269,20 +269,12 @@ def plot_all(pdist, v, d, event, cmap='viridis'):
 
 if __name__ == "__main__":
     from config import *
-    ZT10 = 0.09
-    DT10 = 400
-    EL = [[ZT10, DT10, m10, dm10, 0.0, o10],\
-        [ZT10, DT10, m10, dm10, 0.1, o10],\
-        [ZT10, DT10, m10, dm10, 0.2, o10],\
-        [ZT10, DT10, m10, dm10, 0.3, o10],\
-        [ZT10, DT10, m10, dm10, 0.4, o10],\
-        [ZT10, DT10, m10, dm10, 0.5, o10],\
-        [ZT10, DT10, m10, dm10, 0.6, o10],\
-        [ZT10, DT10, m10, dm10, 0.7, o10],\
-        [ZT10, DT10, m10, dm10, 0.8, o10],\
-        [ZT10, DT10, m10, dm10, 0.9, o10],\
-        [ZT10, DT10, m10, dm10, 1.0, o10]]
-    pdict = gen_pDV_dists(EL, plot=False)
-    for event in EL:
+    pdict = gen_pDV_dists(event_list[0:1], plot=False)
+    for event in event_list[0:1]:
         pdist = pdict[str(event)]
-        plot_all(pdist, event[4], event[1], event)
+        max = pdist[0].max()/pdist[0].sum()
+        a = 0
+        while a<100:
+            max *= max
+            a += 1
+        print(max)

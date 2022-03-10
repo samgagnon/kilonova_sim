@@ -5,9 +5,6 @@ from events import *
 # set simulator parameters
 device = 'cpu'  # TODO: install CUDA toolkit for Win10
 k = 1 # number of free observed event parameters
-malm = False # do we want to consider malmquist bias?
-# theshold for rejecting samples pre-light curve generation
-threshold = 1e-3
 # SNR threshold
 rho_cri = 8
 # R0, tau, m_mean, m_sclae, m_low, m_high, chi_sigma
@@ -19,13 +16,32 @@ rho_cri = 8
 # find sauce to motivate the selected values
 BNS_par = [300,3,1.4,0.5,1.1,2.5,0.1]
 
-if malm:
-    bad_result = [-3*n_events]
+if m100==True:
+    monly = True
 else:
-    bad_result = [-3]
+    monly = False
+
+if (m100==True) or (e100==True):
+    malm = True
+    # theshold for rejecting samples pre-light curve generation
+    threshold = -6*(n_events**2)
+else:
+    malm = False
+    # theshold for rejecting samples pre-light curve generation
+    threshold = -6*n_events
+
+if m100m:
+    monly = True
+    malm = False
+    threshold = -6*n_events
+
+if malm:
+    bad_result = [-6*(n_events**2)]
+else:
+    bad_result = [-6*n_events]
 good_reference = [0.0]
 
-n_training_samples = int(5000)
+n_training_samples = int(350)
 observation_key = "x"
 
 n_weighted_samples = 10_000
@@ -33,7 +49,7 @@ n_weighted_samples = 10_000
 n_posterior_samples_for_truncation = 10_000
 
 # n_parameters = 1 + (k * n_obs) + (k + 1) * n_nobs # number of free parameters (event parameters plus H0)
-n_parameters = 1 + n_events
+n_parameters = 1# + n_events
 
 marginal_indices_1d, marginal_indices_2d = swyft.utils.get_corner_marginal_indices(n_parameters)
 
