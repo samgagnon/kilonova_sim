@@ -61,7 +61,9 @@ def light_curve(fitfunc, fixed_params):
     # get observed magnitudes
     # see if there is any way to do this without a for loop
     obs_mags = []
+    print(entries)
     for entry in entries[0][0]['photometry']:
+        print(entry)
         if entry['system'] == 'AB':
             obs_mags += [float(entry['magnitude'])]
 #     print(obs_mags)
@@ -69,7 +71,8 @@ def light_curve(fitfunc, fixed_params):
     # probabilistic magnitude shouuld be a utility function
 
     # magnitude probability of detection
-    sig10 = 23.3
+    # sig10 = 23.3 # for low sensitivity tests
+    sig10 = 25 # for high sensitivity tests
 #     mclip_a = 0
 #     mclip_b = 1
 #     m_std = abs((jansky(sig10)) / 10)
@@ -99,7 +102,7 @@ def nobs_forward(H0, ve, DL, pDL, event):
     # get free event parameters
     pdist = pdict[str(event)]
     if monly:
-        v0 = 1.0
+        return False, 1.0
     else:
         v0 = v_from_CDF(pdist, ve[0])
     if k>2:
@@ -157,7 +160,7 @@ def obs_forward(H0, ve, event):
     # "distance in cosmology"
     DIC = universe.luminosity_distance(TZ).value
     if monly:
-        v0 = 1.0
+        return True, 1.0
     else:
         v0 = v_from_DCDF(pdist, DIC, ve[0])
     # probability density of given cosmology-assigned distance at sampled angle v0
@@ -184,13 +187,15 @@ def forward(v):
     v[0] = H0
     v[1:] = np.random.uniform(0, 1, n_events)
     print("Input H0:", H0)
-    p = 0
+    p = 0 # log likelihood
+    npr = 0 # non-detection log likelihood 
+    mp = 0 # non-detection max. log likelihood
     universe = cosmo.FlatLambdaCDM(H0, 0.3)
     if malm:
         obs_det = []
         nobs_det = []
         # instantiate GWT cosmology
-        cosmos = tools_earth.set_cosmology(None, 70, 0.3, 2.725)
+        cosmos = tools_earth.set_cosmology(None, H0, 0.3, 2.725)
         # instantiate binary neutron star object
         dns = DNS(cosmos)
         # instantiate GW detector object
@@ -222,13 +227,21 @@ def forward(v):
                 # determine if the event is detected at all
                 dt = tel_fun(dns, event[0], M1, M2, np.arccos(v0), rho_cri, Tools.detector.ante_pattern, Tools.noise)
                 if np.random.uniform() > dt:
+                    # if an event is not GW-detected, add the log-likelihood as normal
+                    # to determine if the event is non-informative, but save the maximum
+                    # log-likelihood to swap out at the end of the forward model if the sample
+                    # ends up being informative
                     obs_det += [False]
+                    dprob, dpm, dps = p_DV(pdist, v0, DIC)
+                    p += np.log10(dprob/dps)
+                    npr += np.log10(dprob/dps)
+                    mp += np.log10(dpm/dps)
+                    if p < threshold:
+                        return dict(x=np.array(bad_result))
                     continue
                 else:
                     obs_det += [True]
             dprob, dpm, dps = p_DV(pdist, v0, DIC)
-            print(dprob/dpm)
-            print(dprob/dps)
             p += np.log10(dprob/dps)
             if p < threshold:
                 return dict(x=np.array(bad_result))
@@ -265,14 +278,21 @@ def forward(v):
                 # probability of GW detection
                 dt = tel_fun(dns, ZIC, M1, M2, np.arccos(v0), rho_cri, Tools.detector.ante_pattern, Tools.noise)
                 if np.random.uniform() > dt:
+                    # if an event is not GW-detected, add the log-likelihood as normal
+                    # to determine if the event is non-informative, but save the maximum
+                    # log-likelihood to swap out at the end of the forward model if the sample
+                    # ends up being informative
                     nobs_det += [False]
+                    p += np.log10(pDL/dps)
+                    npr += np.log10(pDL/dps)
+                    mp += np.log10(dpm/dps)
+                    if p < threshold:
+                        return dict(x=np.array(bad_result))
                     continue
                 else:
                     nobs_det += [True]
             # plot_all(pdist, v0, DL, event, cmap='coolwarm')
             p += np.log10(pDL/dps)
-            print(pDL/dpm)
-            print(pDL/dps)
             if p < threshold:
                 return dict(x=np.array(bad_result))
     # now generate light curves to determine if the parameters can reproduce observations
@@ -320,16 +340,13 @@ def forward(v):
     print(p)
     if np.isnan(p):
         return dict(x=np.array(bad_result))
-    if malm:
-        ndet = sum(obs_det) + sum(nobs_det)
-        f = n_events - ndet + 1
-        if f*p < bad_result:
-            x = bad_result
-        else:
-            x = [f*p]
-        return dict(x=np.array(x))
     if p < bad_result:
         x = bad_result
+    elif malm:
+        # final modification to swap out GW-non-obs. log-likelihoods with their maxima
+        p -= npr
+        p += mp
+        x = [p]
     else:
         x = [p]
     return dict(x=np.array(x))
@@ -337,38 +354,32 @@ def forward(v):
 
 
 if __name__ == "__main__":
-    import time
-    # event = event_list[0]
-    # M1 = event[3][1]
-    # M2 = event[3][0]
-    
+    import time as ti
     det_list = []
-    tic = time.time()
-    for i in range(len(event_list)):
-        event = event_list[i]
-        # v0 = ev100[i]
-        # M1 = em1100[i]
-        # M2 = em2100[i]
-        # v0 = 1.0
-        M1, M2 = event[2][0], event[2][1]
+    tic = ti.time()
+    for i in range(len(ev100)):
+        print(i)
+        v0 = ev100[i]
+        M1 = em1100[i]
+        M2 = em2100[i]
+        DT = ed100[i]
+        ZT = ez100[i]
         if M1<M2:
             Q = M1/M2
         else:
             Q = M2/M1
         Mchirp = ((M1*M2)**3/(M1+M2))**(1/5)
-        # print(Q, Mchirp)
-        # print(event[0], event[1])
         fixed_params = {"ebv": 2.2, "rvhost": 3.1, "frad": 0.999, "nnhost": 1e18,\
                 "texplosion": -0.01, "temperature": 2500, "kappa_red": 10,\
                 "kappa_blue": 0.5, "kappagamma": 10000.0, "Mchirp": Mchirp,\
-                "q": Q, "cos_theta": event[4], "cos_theta_open": 0.707107,\
+                "q": Q, "cos_theta": v0, "cos_theta_open": 0.707107,\
                 "disk_frac": 0.15, "radius_ns": 11.0, "alpha": 1.0,\
                 "Mtov": 2.2, "cos_theta_cocoon": 0.5, "tshock": 1.7,\
-                "temperature_shock": 100, "lumdist": event[1], "redshift": event[0]}
+                "temperature_shock": 100, "lumdist": DT, "redshift": ZT}
         p = light_curve(my_fitter, fixed_params)
         print(p[0])
         det_list += [p[0]]
-    print(time.time() - tic)
+    print(ti.time() - tic)
     print(det_list)
     # a = 0
     # outlist = []

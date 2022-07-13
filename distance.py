@@ -250,7 +250,7 @@ def m_from_dm(dm_tuple, event):
     return m1, m2
 
 
-def plot_all(pdist, v, d, event, cmap='viridis'):
+def plot_all(pdist, v, d, event, cmap='coolwarm'):
     import matplotlib.pyplot as plt
     fig = plt.figure()
     fig.set_figwidth(10)
@@ -259,11 +259,13 @@ def plot_all(pdist, v, d, event, cmap='viridis'):
     i0 = np.arccos(v)*180/np.pi
     # print(v, i0)
     plt.pcolor(iline, pdist[-1], pdist[0]/np.sum(pdist[0]), shading='auto', cmap=cmap)
-    plt.plot(i0, d,'+r')
-    plt.plot(np.arccos(event[4])*180/np.pi, event[1],'+k')
+    # plt.plot(i0, d,'+r')
+    # plt.plot(np.arccos(event[4])*180/np.pi, event[1],'+k')
     plt.xlabel("$\iota$ [$^\circ$]", fontsize=20)
     plt.ylabel("$D_L$ [Mpc]", fontsize=20)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.ax.get_yaxis().labelpad = 15
+    cbar.ax.set_ylabel('$P(D_L, \iota)$', fontsize=20)
     plt.show()
 
 

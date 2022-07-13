@@ -3,7 +3,7 @@ import sys
 import torch
 from torch import tensor
 
-from forward import *
+from sforward import *
 
 affix = str(sys.argv[1])
 
@@ -12,8 +12,8 @@ affix = str(sys.argv[1])
 # by convention, nobs parameters preceed obs parameters
 
 # define prior chunks
-global_low_list = [65.0]
-global_high_list = [90.0]
+global_low_list = [60.0]
+global_high_list = [80.0]
 # low_list = [0.0]*n_events
 # high_list = [1.0]*n_events
 

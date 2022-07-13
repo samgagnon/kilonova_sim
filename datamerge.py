@@ -53,7 +53,7 @@ d3 = torch.load(subdir + '/el3.dataset.pt')
 d4 = torch.load(subdir + '/el4.dataset.pt')
 d5 = torch.load(subdir + '/el5.dataset.pt')
 
-dtl = torch.load('data archive/' + subdir + '.dataset.pt')
-dT = d1 + d2 + d3 + d4 + d5 + dtl
+# dtl = torch.load('data archive/' + subdir + '.dataset.pt')
+dT = d1 + d2 + d3 + d4 + d5# + dtl
 
 torch.save(dT, 'data archive/' + subdir + '.dataset.pt')

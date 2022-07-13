@@ -16,32 +16,20 @@ rho_cri = 8
 # find sauce to motivate the selected values
 BNS_par = [300,3,1.4,0.5,1.1,2.5,0.1]
 
-if m100==True:
-    monly = True
-else:
-    monly = False
+threshold = -6*n_events
 
-if (m100==True) or (e100==True):
+if m == True:
     malm = True
-    # theshold for rejecting samples pre-light curve generation
-    threshold = -6*(n_events**2)
 else:
     malm = False
-    # theshold for rejecting samples pre-light curve generation
-    threshold = -6*n_events
 
-if m100m:
+if m100m or m100:
     monly = True
-    malm = False
-    threshold = -6*n_events
 
-if malm:
-    bad_result = [-6*(n_events**2)]
-else:
-    bad_result = [-6*n_events]
-good_reference = [0.0]
+bad_result = [-6*n_events]
+good_reference = [0.0] # deprecated
 
-n_training_samples = int(350)
+n_training_samples = int(600)
 observation_key = "x"
 
 n_weighted_samples = 10_000

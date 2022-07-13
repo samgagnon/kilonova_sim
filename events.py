@@ -4,13 +4,24 @@ import astropy.cosmology as cosmo
 o1 = False
 o5 = False
 o100 = False
+o100o = False
+o100m = False
 m100 = False
-m100m = False
-e100 = True
+m100m = False # malmquist bias
+e100 = False
+es100 = False
+es25100 = False # GW190425
+esg25100 = True # GW190814
+em100 = False # malmquist bias different masses
+e10 = False
 one = False
 
 # are non-observations included?
 n = True
+# is malmquist bias considered?
+m = True
+# is em isotropy assumed?
+monly = False
 
 # assume a true value for the Hubble constant
 u_true = cosmo.FlatLambdaCDM(70, 0.3)
@@ -357,6 +368,22 @@ ev100 = [0.1588633 , 0.22194531, 0.91346988, 0.85653405, 0.62906009,\
 #     True, True, True, False, True, True, False, True, True, True, False, \
 #     False, True, True, False, True, False]
 
+eso100 = [True, True, False, False, True, False, False, False, True, False, False, False, True,\
+    False, False, False, False, False, False, False, False, False, False, False, False, False, False, \
+    False, False, False, False, False, False, False, False, False, False, False, False, False, True, False, \
+    False, False, False, False, False, False, True, False, False, False, False, False, False, False, \
+    False, False, False, False, False, False, False, False, False, False, False, False, False, False, \
+    False, False, False, False, False, False, False, False, True, False, False, False, False, False, False, \
+    False, False, False, False, True, False, False, False, False, False, False, True, False, True]
+
+eso25100 = [True, True, False, False, True, False, False, False, True, True, False, True, True, False, False, \
+    False, False, False, True, False, False, False, False, False, False, True, False, False, False, True, False, \
+    False, False, False, False, False, False, False, False, False, True, False, False, False, False, False, False, \
+    False, True, False, False, False, False, True, False, False, False, False, False, False, False, False, False, \
+    False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True, \
+    False, False, False, False, False, False, False, False, False, False, True, False, False, False, False, \
+    False, False, True, True, True]
+
 eo100 = [True, True, False, False, True, True, False, False, True, False, False, \
     False, True, True, False, False, False, False, False, True, False, False, False, \
     False, False, False, False, False, False, False, False, False, True, False, False, \
@@ -365,6 +392,71 @@ eo100 = [True, True, False, False, True, True, False, False, True, False, False,
     False, False, False, False, False, False, False, False, True, False, False, False, False, \
     False, False, False, False, False, True, False, False, True, True, True, False, True, \
     True, False, False, False, False, False, False, False, False, False, True, False, True]
+
+# this list is sus, hence i commented it out
+# esgo25100 = [True, True, False, False, False, False, False, False, False, False, False, False, True, True, False, \
+#     False, True, True, False, False, False, False, False, False, False, False, False, False, False, False, False, \
+#     False, True, False, False, False, False, False, False, True, False, False, False, False, False, True, False, \
+#     False, False, False, False, True, False, False, True, False, True, False, False, False, True, False, False, False, \
+#     False, False, False, False, False, False, True, False, True, False, True, False, False, False, False, False, False, \
+#     True, True, False, False, False, False, False, False, False, True, False, False, True, True, False, False, False, True]
+
+esgo25100 = [True, True, False, True, False, False, False, False, False, True, False, True, True, True, False, False, True, \
+    True, False, False, False, True, False, True, False, True, True, True, False, True, False, True, True, True, False, \
+    False, False, False, False, True, False, True, False, True, False, True, False, False, False, False, False, True, False, \
+    False, True, True, True, True, False, False, True, True, False, False, False, False, False, True, False, False, True, False, \
+    True, True, True, False, False, False, False, True, False, True, True, False, False, False, False, False, False, False, \
+    True, False, False, True, True, True, True, False, True]
+
+esgloc25100 = [8915091, 8874135, 8972412, 8882313, 9660663, 9615610, 9668858, 8796287, 9734391, 8919185, 9042045, 9050255, \
+    8960150, 8837235, 9668855, 8898694, 8947855, 8968330, 8898706, 8890509, 8898693, 9001108, 8910999, 8960157, 9636088, \
+    8878212, 9062536, 8849539, 9652478, 8984724, 8874137, 9074835, 8816776, 9029787, 9742613, 8951971, 8997015, 9201826, \
+    9070756, 8845447, 8992912, 9042078, 9574637, 8964247, 9005225, 8939667, 9742599, 9664779, 9017501, 9885984, 8923255, \
+    8927372, 9037976, 9013412, 8824963, 8951954, 9042070, 8960153, 9349295, 9177243, 8943758, 8976536, 9013380, 9005208, \
+    9722101, 9586920, 8960137, 8841361, 8906881, 8943762, 8939658, 9619699, 9029782, 9078922, 8804497, 8956064, 8673408, \
+    8968336, 9025684, 9107598, 9169072, 8997005, 8829069, 8747153, 9029765, 9726232, 8898703, 8874147, 9017508, 8738936, \
+    8771707, 8640629, 9013386, 9037964, 8935558, 9070750, 9021574, 8833166, 8853646]
+
+esgebv25100 = [0.028745705, 0.028718129, 0.028212829, 0.029077766, 0.028574318, 0.028878536, 0.029018832, 0.029071696, \
+    0.028208354, 0.028753104, 0.02870199, 0.028701192, 0.028699849, 0.028709836, 0.028821833, 0.028903186, 0.028795449, \
+    0.02842519, 0.027229803, 0.028885774, 0.028923746, 0.028593363, 0.028803933, 0.028931743, 0.02869388, 0.028086733, \
+    0.028667478, 0.028903287, 0.028964657, 0.02892758, 0.028882507, 0.02761095, 0.028817866, 0.028123707, 0.028340679, \
+    0.02902341, 0.0290158, 0.028868247, 0.028909374, 0.029002815, 0.02890628, 0.028536823, 0.02853476, 0.029295312, \
+    0.028706642, 0.028981948, 0.028834747, 0.028759385, 0.028660312, 0.02806453, 0.02907601, 0.028930098, 0.028517826, \
+    0.02861582, 0.028800493, 0.028772244, 0.02904997, 0.028558992, 0.028901117, 0.028432468, 0.0287123, 0.028109783, \
+    0.028878924, 0.028741244, 0.02894148, 0.028703822, 0.028618986, 0.02811283, 0.028989997, 0.028835904, 0.028728439, \
+    0.02865072, 0.02897402, 0.029053625, 0.028951773, 0.028835135, 0.028713893, 0.028432412, 0.02902706, 0.028715003, \
+    0.028324412, 0.028673353, 0.02904131, 0.029228203, 0.028513808, 0.02847366, 0.02890416, 0.02873309, 0.028660923, \
+    0.028782135, 0.028924664, 0.028971639, 0.028806554, 0.028930139, 0.02883799, 0.028718205, 0.02856464, 0.02870769, 0.028953943]
+
+loc100 = [78454, 272152, 116293, 631460, 242861, 535254, 519389, 647905, 497881, \
+    369866, 553668, 234665, 267454, 575218, 580803, 639712, 565968, 729006, 279746, \
+    642690, 130291, 316150, 639640, 482913, 518736, 229550, 644748, 432903, 600257, \
+    194696, 729053, 618143, 615092, 537210, 486104, 558798, 377033, 742379, 652875, \
+    624246, 143503, 628380, 73092, 505608, 478854, 747548, 600731, 776816, 221351, \
+    718456, 539395, 734282, 468720, 314569, 94171, 682136, 577239, 625304, 186484, \
+    426733, 725591, 416503, 473828, 110448, 721359, 640741, 663018, 603325, 673775, \
+    415469, 600616, 632488, 679413, 637557, 583360, 705363, 758824, 591605, 183436, \
+    650984, 548614, 589563, 414927, 592464, 483047, 552700, 138275, 723518, 621245, \
+    264380, 597670, 717555, 188575, 716243, 500452, 728386, 247973, 302300, 167041, 181526]
+
+ebv100 = [0.025876775, 0.025381923, 0.02545115, 0.029239096, 0.027769957, \
+    0.022483557, 0.027306523, 0.019454915, 0.027479878, 0.025833605, 0.023340702, \
+    0.027686868, 0.028030062, 0.022416193, 0.028364722, 0.019137364, 0.021638894, \
+    0.024110856, 0.027289705, 0.03657897, 0.026405858, 0.028910855, 0.033827726, \
+    0.023511775, 0.023106012, 0.02743964, 0.03706268, 0.030099545, 0.027191944, 0.02644228, \
+    0.02319801, 0.032319535, 0.026870092, 0.025152072, 0.02979644, 0.021584136, \
+    0.025253946, 0.022835098, 0.028096491, 0.035981294, 0.026567498, 0.03286307, \
+    0.024157215, 0.02724219, 0.027747933, 0.020931374, 0.035107974, 0.0206298, \
+    0.02759651, 0.021936491, 0.024791095, 0.024062393, 0.030018926, 0.025877524, \
+    0.028594714, 0.028363746, 0.022205655, 0.03570793, 0.026070293, 0.029912295, \
+    0.023829887, 0.03027212, 0.032056548, 0.028645368, 0.023324989, 0.019661417, \
+    0.03256602, 0.026828483, 0.027702205, 0.029651044, 0.027708959, 0.027684407, \
+    0.023480184, 0.034941025, 0.025229638, 0.021555161, 0.022973388, 0.021126183, \
+    0.026750235, 0.020574965, 0.024479756, 0.020967092, 0.024577294, 0.024709476, \
+    0.031490784, 0.023758978, 0.029028816, 0.021863073, 0.024401724, 0.028244575, \
+    0.03190075, 0.026354993, 0.02828477, 0.021243712, 0.029832006, 0.02156803, \
+    0.028065132, 0.027602375, 0.026776005, 0.027300343]
 
 # observation bool
 o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = True, True, False, True, True, \
@@ -398,6 +490,30 @@ if o5:
             [ZT1, DT1, m1, dm1, 0.7, True],\
             [ZT1, DT1, m1, dm1, 0.8, True],\
             [ZT1, DT1, m1, dm1, 0.9, True]]
+    elif monly:
+        obs_list = [[ZT1, DT1, m1, dm1, 0.0, False],\
+            [ZT1, DT1, m1, dm1, 0.1, False],\
+            [ZT1, DT1, m1, dm1, 0.2, False],\
+            [ZT1, DT1, m1, dm1, 0.3, False],\
+            [ZT1, DT1, m1, dm1, 0.4, False],\
+            [ZT1, DT1, m1, dm1, 0.5, False],\
+            [ZT1, DT1, m1, dm1, 0.6, False],\
+            [ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]
+        
+        nobs_list =  None
+        
+        event_list = [[ZT1, DT1, m1, dm1, 0.0, False],\
+            [ZT1, DT1, m1, dm1, 0.1, False],\
+            [ZT1, DT1, m1, dm1, 0.2, False],\
+            [ZT1, DT1, m1, dm1, 0.3, False],\
+            [ZT1, DT1, m1, dm1, 0.4, False],\
+            [ZT1, DT1, m1, dm1, 0.5, False],\
+            [ZT1, DT1, m1, dm1, 0.6, False],\
+            [ZT1, DT1, m1, dm1, 0.7, True],\
+            [ZT1, DT1, m1, dm1, 0.8, True],\
+            [ZT1, DT1, m1, dm1, 0.9, True]]
     else:
         obs_list = [[ZT1, DT1, m1, dm1, 0.7, True],\
             [ZT1, DT1, m1, dm1, 0.8, True],\
@@ -418,7 +534,18 @@ if o100:
         nobs_list = None
         event_list = obs_list
 
-if m100 or m100m:
+if o100m or o100o:
+    obs_list = [[ZT1, DT1, m1, dm1, v, True] for v in v100]
+    nobs_list = None
+    event_list = obs_list
+
+
+if m100m:
+    obs_list = [[mz100[i], md100[i], (1.4, 1.4), (0.0, 0.0), mv100[i], True] for i, x in enumerate(mo100)]
+    nobs_list = None
+    event_list = obs_list
+
+if m100:
     obs_list = [[mz100[i], md100[i], (1.4, 1.4), (0.0, 0.0), mv100[i], mo100[i]] for i, x in enumerate(mo100) if x==True]
     if n:
         nobs_list = [[mz100[i], md100[i], (1.4, 1.4), (0.0, 0.0), mv100[i], mo100[i]] for i, x in enumerate(mo100) if x==False]
@@ -433,6 +560,59 @@ if e100:
     if n:
         nobs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
          (edm1100[i], edm2100[i]), ev100[i], eo100[i]] for i, x in enumerate(eo100) if x==False]
+        event_list = nobs_list + obs_list
+    else:
+        nobs_list = None
+        event_list = obs_list
+
+if es100:
+    obs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eso100[i], loc100[i], ebv100[i]] for i, x in enumerate(eso100) if x==True]
+    if n:
+        nobs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eso100[i], loc100[i], ebv100[i]] for i, x in enumerate(eso100) if x==False]
+        event_list = nobs_list + obs_list
+    else:
+        nobs_list = None
+        event_list = obs_list
+
+
+if es25100:
+    obs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eso100[i], loc100[i], ebv100[i]] for i, x in enumerate(eso25100) if x==True]
+    if n:
+        nobs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eso100[i], loc100[i], ebv100[i]] for i, x in enumerate(eso25100) if x==False]
+        event_list = nobs_list + obs_list
+    else:
+        nobs_list = None
+        event_list = obs_list
+
+
+if esg25100:
+    obs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], esgo25100[i], esgloc25100[i], esgebv25100[i]] for i, x in enumerate(esgo25100) if x==True]
+    if n:
+        nobs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], esgo25100[i], esgloc25100[i], esgebv25100[i]] for i, x in enumerate(esgo25100) if x==False]
+        event_list = nobs_list + obs_list
+    else:
+        nobs_list = None
+        event_list = obs_list
+
+
+if em100:
+    obs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], True] for i, x in enumerate(eo100)]
+    nobs_list = None
+    event_list = obs_list
+
+if e10:
+    obs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eo100[i]] for i, x in enumerate(eo100[:10]) if x==True]
+    if n:
+        nobs_list = [[ez100[i], ed100[i], (em1100[i], em2100[i]),\
+         (edm1100[i], edm2100[i]), ev100[i], eo100[i]] for i, x in enumerate(eo100[:10]) if x==False]
         event_list = nobs_list + obs_list
     else:
         nobs_list = None
@@ -511,6 +691,8 @@ else:
 det_obs = [event[-1] for event in event_list]
 
 if __name__ == "__main__":
-    print(sum(eo100)/len(eo100))
-    print(sum(eo100))
-    print(len(eo100))
+    # import matplotlib.pyplot as plt
+    # plt.plot(ed100, ev100, '.')
+    # plt.show()
+    det_list = [True, True, False, True, False, False, False, False, False, True, False, True, True, True, False, False, True, True, False, False, False, True, False, True, False, True, True, True, False, True, False, True, True, True, False, False, False, False, False, True, False, True, False, True, False, True, False, False, False, False, False, True, False, False, True, True, True, True, False, False, True, True, False, False, False, False, False, True, False, False, True, False, True, True, True, False, False, False, False, True, False, True, True, False, False, False, False, False, False, False, True, False, False, True, True, True, True, False, True]
+    print(esgo25100==det_list)
