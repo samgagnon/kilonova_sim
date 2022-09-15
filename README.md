@@ -24,17 +24,26 @@ A BNS suite forward model and MNRE for Unbiased Inference of the Hubble Constant
 
 * **sforward.py** - Defines the kilonova forward model and evaluates whether simulated BNS mergers are observed in GW and EM.
 
-* **sampler.py** - Generates S from a suite of BNS mergers defined in `events.py`.
+* **sampler.py** - Generates S from a suite of BNS mergers defined in **events.py**.
 
-* **events.py** - Defines various suites of BNS mergers. Booleans in the header are used to select the desired suite
+* **events.py** - Defines various suites of BNS mergers. Booleans in the header are used to select the desired suite.
 
-* **datamerge.py** - Used in train.py to compute validation loss, and may be called on its own to calculate the validation loss on a pre-trained network.
+* **datamerge.py** - Used to combine the samples produced by **sampler.py**.
 
-* **findmax.py** - Applies wedge effects to data stored in the folder.
+* **findmax.py** - Finds the null S return value for the BNS merger suite specified in **events.py**.
 
-* **plot.py** - Removes files of a specified extension from database.
+* **plot.py** - Performs posterior inference on two datasets specified in command line.
 
-## Generating New Transformed Files
+## Generating Summary Statistics
+
+First, specify a BNS suite in **events.py**. Then, run
+
+```
+python sampler.py tag
+```
+
+where `tag` specifies the tag you wish to affix to the output dataset file. Multiple samplers may be run in parallel.
+
 **fourier.py** offers three types of transformations which may be applied to existing 21cm boxes. These are **sweep**, **gaussian**, and **bar**. **sweep** is representative of "The Wedge", **gaussian** multiplies the map's Fourier profile by a Gaussian distribution, and **bar** removes a bar of a specified width in Fourier space.
 
 To generate a transformed file from an existing data file, edit the main method of **fourier.py** to perform the transformation you desire. To perform a certain transformation, then set that argument to **True** in the main method. Each method has a corresponding variable which needs to be set before running, so set that as well. Then, navigate to /data in terminal and run the following line.
