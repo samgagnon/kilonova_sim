@@ -7,42 +7,32 @@ A BNS suite forward model and MNRE for Unbiased Inference of the Hubble Constant
 * **numpy**
 * **scipy**
 * **matplotlib**
+* **astropy**
+* **gwtoolbox**
+* **mosfit**
 * **pytorch**
-* **cuda** for GPU. The program will automatically use it if available.
+* **swyft**
+* **healpy**
+* **dustmaps**
 
-## Files in src
-* **config.py** - Contains the settings on variables relevant to the rest of the code. This should be the only file you need to edit to run the code.
+## Files
+* **config.py** - Contains the settings on variables relevant to the rest of the code, including BNS parameters and null return value of S.
 
-* **model_def.py** - The definition of the network model.
+* **distance.py** - Defines key functions used in evaluating $P(D_L, v)$ likelihood functions for each BNS merger.
 
-* **train.py** - Use this to train the network from scratch or to continue training. Defaults to GPU if available.
+* **sky.py** - References GW source localization file and queries EM follow-up from GWTreasureMap.
 
-* **feeder.py** - Defines a DataFeeder class which loads desired input and target maps, then provides a method for sampling from them. This is mainly used by train.py to get the training data.
+* **sforward.py** - Defines the kilonova forward model and evaluates whether simulated BNS mergers are observed in GW and EM.
 
-* **utils.py** - Miscellaneous utilities used in the code. 
+* **sampler.py** - Generates S from a suite of BNS mergers defined in `events.py`.
 
-* **statistics.py** - Contains statistical methods used in qualifying the performance of the network.
+* **events.py** - Defines various suites of BNS mergers. Booleans in the header are used to select the desired suite
 
-* **verification.py** - Used in train.py to compute validation loss, and may be called on its own to calculate the validation loss on a pre-trained network.
+* **datamerge.py** - Used in train.py to compute validation loss, and may be called on its own to calculate the validation loss on a pre-trained network.
 
-## Files in data
-* **fourier.py** - Applies wedge effects to data stored in the folder.
+* **findmax.py** - Applies wedge effects to data stored in the folder.
 
-* **cleaner.py** - Removes files of a specified extension from database.
-
-## Folders in data
-Data files are organized within the directories below
-```
-data/redshift/Run x - RNG y/files
-```
-## Training the Network
-After navigating to /src in terminal, the following line will initiate the training of a new network.
-
-```
-python train.py sweep-10
-```
-
-The first command after the filename specifies the desired input maps. This argument is either **none** or **x-y**, where **x** specifies the type of transformation and **y** specifies the value of the variable associated with that transormation. See **fourier.py** for more information on the transformation types. The target map is set in config.py.
+* **plot.py** - Removes files of a specified extension from database.
 
 ## Generating New Transformed Files
 **fourier.py** offers three types of transformations which may be applied to existing 21cm boxes. These are **sweep**, **gaussian**, and **bar**. **sweep** is representative of "The Wedge", **gaussian** multiplies the map's Fourier profile by a Gaussian distribution, and **bar** removes a bar of a specified width in Fourier space.
