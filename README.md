@@ -1,4 +1,4 @@
-### DeSCI
+# DeSCI
 
 Debiased Standard siren Cosmological Inference
 
