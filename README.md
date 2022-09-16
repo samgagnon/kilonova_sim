@@ -1,4 +1,6 @@
-# 
+### DeSCI
+
+Debiased Standard siren Cosmological Inference
 
 A BNS suite forward model and MNRE for Unbiased Inference of the Hubble Constant
 
