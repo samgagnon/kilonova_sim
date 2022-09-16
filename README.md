@@ -34,7 +34,7 @@ A BNS suite forward model and MNRE for Unbiased Inference of the Hubble Constant
 
 * **plot.py** - Performs posterior inference on two datasets specified in command line.
 
-## Generating Summary Statistics
+## Using the Code
 
 First, specify a BNS suite in **events.py**. Then, run
 
@@ -42,11 +42,16 @@ First, specify a BNS suite in **events.py**. Then, run
 python sampler.py tag
 ```
 
-where `tag` specifies the tag you wish to affix to the output dataset file. Multiple samplers may be run in parallel.
+where `tag` specifies the tag you wish to affix to the output dataset file. Multiple samplers may be run in parallel. The code is currently written with the assumption that five samplers will be run in parallel, with the tags `1`, `2`, `3`, `4`, and `5`. These may be combined into a single dataset by placing them into a directory `b` and running
 
-**fourier.py** offers three types of transformations which may be applied to existing 21cm boxes. These are **sweep**, **gaussian**, and **bar**. **sweep** is representative of "The Wedge", **gaussian** multiplies the map's Fourier profile by a Gaussian distribution, and **bar** removes a bar of a specified width in Fourier space.
+```
+python datamerge.py b
+```
 
-To generate a transformed file from an existing data file, edit the main method of **fourier.py** to perform the transformation you desire. To perform a certain transformation, then set that argument to **True** in the main method. Each method has a corresponding variable which needs to be set before running, so set that as well. Then, navigate to /data in terminal and run the following line.
+This produces a combined dataset in a directory named `data archive`. For any given bias correction scheme, there should be three datasets. One fully-biased, one which accounts for GW anisotropy but not EM anisotropy, and one which accounts for both biases. Their corresponding posteriors may be produced by running
+
 ```
-python fourier.py
+python plot.py d1 d2
 ```
+
+where `d1` is one dataset and `d2` is the other. Typically, they should be paired as (fully-biased, GW-correction-only) or (GW-correction-only, fully-corrected).
